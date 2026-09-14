@@ -472,7 +472,7 @@ class GooglePlayVitalsMCPServer:
             raw = self.client.query_startup_rate(
                 package_name=pkg, days=days, version_code=version_code
             )
-            data = clean_rate_metrics(raw, "slowStartRate", "userPerceivedSlowStartRate")
+            data = clean_rate_metrics(raw, "slowStartRate", "slowStartRate7dUserWeighted")
         elif metric_type == "CRASH":
             raw = self.client.query_crash_rate(
                 package_name=pkg, days=days, version_code=version_code

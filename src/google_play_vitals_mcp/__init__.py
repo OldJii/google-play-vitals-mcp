@@ -3,7 +3,7 @@ Google Play Vitals MCP Server
 Universal, token-efficient Model Context Protocol server for Google Play Android Vitals.
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __author__ = "Oldjii"
 __license__ = "MIT"
 

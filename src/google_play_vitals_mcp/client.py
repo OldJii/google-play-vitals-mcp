@@ -205,17 +205,22 @@ class GooglePlayVitalsClient:
             return cached
 
         service = self.get_service()
+        dimensions = ["startType"]
+        filters = ['startType = "COLD"']
+        if version_code:
+            dimensions.append("versionCode")
+            filters.append(f"versionCode = {version_code}")
+
         body: dict[str, Any] = {
             "timelineSpec": self.build_timeline_spec(days),
+            "dimensions": dimensions,
+            "filter": " AND ".join(filters),
             "metrics": [
                 "slowStartRate",
-                "userPerceivedSlowStartRate",
+                "slowStartRate7dUserWeighted",
                 "distinctUsers",
             ],
         }
-        if version_code:
-            body["dimensions"] = ["versionCode"]
-            body["filter"] = f"versionCode = {version_code}"
 
         result = (
             service.vitals()
