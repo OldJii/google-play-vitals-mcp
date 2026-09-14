@@ -293,19 +293,39 @@ class GooglePlayVitalsClient:
         self.cache.set(cache_key, issues)
         return issues
 
-    def search_error_reports(self, issue_name: str, page_size: int = 3) -> list[dict[str, Any]]:
+    def search_error_reports(
+        self,
+        issue_name: str,
+        page_size: int = 3,
+        package_name: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search individual raw error reports and stack traces for a given issue."""
         cache_key = f"reports_{issue_name}_{page_size}"
         cached = self.cache.get(cache_key)
         if cached:
             return cached
 
+        # Derive parent 'apps/{app}' format required by Google Play Reporting API
+        parent_app = None
+        if issue_name.startswith("apps/"):
+            parts = issue_name.split("/")
+            if len(parts) >= 2:
+                parent_app = f"apps/{parts[1]}"
+
+        if not parent_app:
+            pkg = self.resolve_package_name(package_name)
+            parent_app = f"apps/{pkg}"
+
         service = self.get_service()
         resp = (
             service.vitals()
             .errors()
             .reports()
-            .search(parent=issue_name, pageSize=page_size)
+            .search(
+                parent=parent_app,
+                filter=f"errorIssue = '{issue_name}'",
+                pageSize=page_size,
+            )
             .execute()
         )
         reports = resp.get("errorReports", [])
