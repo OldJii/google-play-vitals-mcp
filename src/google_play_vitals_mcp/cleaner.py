@@ -32,19 +32,37 @@ def clean_rate_metrics(
             continue
 
         date_str = f"{year}-{month:02d}-{day:02d}"
-        metrics = r.get("metrics", {})
+        metrics_raw = r.get("metrics", [])
+        metrics_dict: dict[str, Any] = {}
+        if isinstance(metrics_raw, list):
+            for m in metrics_raw:
+                if isinstance(m, dict):
+                    m_name = m.get("metric")
+                    if m_name:
+                        metrics_dict[m_name] = m
+        elif isinstance(metrics_raw, dict):
+            metrics_dict = metrics_raw
 
+        rate_entry = metrics_dict.get(rate_key, {})
         rate_val = (
-            metrics.get(rate_key, {}).get("decimalValue")
-            or metrics.get(rate_key, {}).get("value")
-            or 0.0
+            rate_entry.get("decimalValue", {}).get("value")
+            if isinstance(rate_entry.get("decimalValue"), dict)
+            else rate_entry.get("decimalValue") or rate_entry.get("value") or 0.0
         )
+
+        perceived_entry = metrics_dict.get(perceived_rate_key, {})
         perceived_val = (
-            metrics.get(perceived_rate_key, {}).get("decimalValue")
-            or metrics.get(perceived_rate_key, {}).get("value")
-            or 0.0
+            perceived_entry.get("decimalValue", {}).get("value")
+            if isinstance(perceived_entry.get("decimalValue"), dict)
+            else perceived_entry.get("decimalValue") or perceived_entry.get("value") or 0.0
         )
-        users_val = metrics.get("distinctUsers", {}).get("count") or 0
+
+        users_entry = metrics_dict.get("distinctUsers", {})
+        users_val = (
+            users_entry.get("decimalValue", {}).get("value")
+            if isinstance(users_entry.get("decimalValue"), dict)
+            else users_entry.get("count") or users_entry.get("value") or 0
+        )
 
         try:
             rate_float = float(rate_val)
@@ -87,7 +105,7 @@ def clean_stack_trace(raw_report: dict[str, Any], max_frames: int = 30) -> dict[
     os_ver = raw_report.get("osVersion", {}).get("apiLevel") or "Unknown API"
     time_str = raw_report.get("eventTime", "")
 
-    st_obj = raw_report.get("stackTrace", {})
+    st_obj = raw_report.get("stackTrace") or {}
     raw_lines: list[str] = []
 
     # Title / Exception line

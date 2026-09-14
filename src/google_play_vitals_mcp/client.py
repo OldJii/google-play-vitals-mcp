@@ -140,8 +140,11 @@ class GooglePlayVitalsClient:
         return self._service
 
     def build_timeline_spec(self, days: int) -> dict[str, Any]:
-        """Construct a timeline spec for daily aggregation over the past N days."""
-        end_date = datetime.utcnow().date()
+        """
+        Construct a timeline spec for daily aggregation over the past N days.
+        Note: Google Play Vitals API has a 1-2 day freshness lag, so end_date is set to T-2 days.
+        """
+        end_date = datetime.utcnow().date() - timedelta(days=2)
         start_date = end_date - timedelta(days=days)
         return {
             "aggregationPeriod": "DAILY",
@@ -274,7 +277,7 @@ class GooglePlayVitalsClient:
             .issues()
             .search(
                 parent=f"apps/{pkg}",
-                filter=f"errorReportType = {error_type.upper()}",
+                filter=f"errorIssueType = {error_type.upper()}",
                 pageSize=page_size,
             )
             .execute()
@@ -306,6 +309,9 @@ class GooglePlayVitalsClient:
             pkg = self.resolve_package_name(package_name)
             parent_app = f"apps/{pkg}"
 
+        # Extract issue ID for filter: AIP-160 requires errorIssueId = "..."
+        issue_id = issue_name.split("/")[-1]
+
         service = self.get_service()
         resp = (
             service.vitals()
@@ -313,7 +319,7 @@ class GooglePlayVitalsClient:
             .reports()
             .search(
                 parent=parent_app,
-                filter=f"errorIssue = '{issue_name}'",
+                filter=f'errorIssueId = "{issue_id}"',
                 pageSize=page_size,
             )
             .execute()
