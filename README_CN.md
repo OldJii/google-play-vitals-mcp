@@ -27,13 +27,25 @@
 
 ## 🛠️ MCP 工具清单
 
+### 1. 原子核心工具（推荐智能体通过原子组合实现任意场景）
+
 | 工具名称 | 类型 | 功能定位 |
 | :--- | :---: | :--- |
-| **`play_check_status`** | 环境诊断 | 自检 Python 依赖完整性、GCP 密钥路径有效性及配置状态。 |
-| **`play_get_top_anr_summary`** | **核心诊断** | 一键聚合获取当前线上 Top ANR 错误簇及其代表性主线程调用栈。 |
+| **`play_get_release_tracks`** | **发版自发现** | 获取各发版轨道（`PRODUCTION` 正式、`BETA`、`ALPHA`、`INTERNAL`）当前正在生效的 Release 版本名与 `versionCodes`。用于智能体自动感知线上最新稳定版本。 |
+| **`play_search_error_issues`** | **错误原子检索** | 支持原生 AIP-160 条件检索 `CRASH`、`ANR` 或 `NON_FATAL` 错误簇。可按特定 `version_code`、前台/后台状态、用户可感知（`is_user_perceived`）过滤，默认按受影响人数和次数降序。 |
+| **`play_get_error_reports`** | **样本堆栈下钻** | 依据 Issue ID 或完整资源名，原子化调取多台真实设备的现场参数与经过反混淆清晰还原的调用栈。 |
+| **`play_list_anomalies`** | **异常事件监控** | 获取 Google 官方算法检测到的线上稳定性异动告警（如发版后 Crash 率突增事件）。 |
+| **`play_list_accessible_apps`** | **账号应用发现** | 列出当前 GCP 服务账号拥有访问权限的全部 Google Play 应用包名与标题。 |
+
+### 2. 统计与快捷工具
+
+| 工具名称 | 类型 | 功能定位 |
+| :--- | :---: | :--- |
 | **`play_get_metric_trends`** | 指标透视 | 查询 **`ANR`**、**`STARTUP`**（冷启动慢启动率，验证 Baseline Profile）或 **`CRASH`** 的精简历史趋势与平均值。 |
 | **`play_compare_versions`** | 对比决策 | 传入两个版本号，自动横评计算指标升降百分比，直接输出优化或恶化结论。 |
-| **`play_get_raw_error_reports`** | 样本下钻 | 查询特定 Issue 下多台设备的现场硬件参数与长堆栈详情。 |
+| **`play_get_top_anr_summary`** | 一键快捷排查 | 一站式聚合查询当前线上 Top ANR 错误簇及其代表性主线程调用栈。 |
+| **`play_check_status`** | 环境诊断 | 自检 Python 依赖完整性、GCP 密钥路径有效性及配置状态。 |
+| **`play_get_raw_error_reports`** | 历史兼容别名 | `play_get_error_reports` 的向后兼容别名。 |
 
 ### 📝 MCP Prompts 预设提示词与 Resources 资源
 
@@ -161,6 +173,7 @@ claude mcp add google-play-vitals -- \
 
 接入完成后，您只需直接与 AI 助手对话：
 
+- *“获取线上最新稳定版本的发生次数前 10 的 Crash 和 ANR 以及详细的堆栈信息。”*
 - *“检查一下 Google Play Vitals 的连接状态。”*
 - *“帮我分析当前线上的 Top ANR 簇，并展示具体卡死的主线程堆栈。”*
 - *“查询过去 14 天的每日 ANR 率和冷启动慢速启动率走势。”*

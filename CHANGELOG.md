@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-14
+
+### Added
+- **Atomic Tool Architecture**: Introduced full orthogonal, atomic tool capabilities covering all Google Play Developer Reporting API Viewer endpoints:
+  - `play_get_release_tracks`: Auto-discover active release tracks (`PRODUCTION`, `BETA`, `ALPHA`, `INTERNAL`) and serving releases with their version names and `versionCodes`.
+  - `play_search_error_issues`: Atomic error cluster retrieval for `CRASH`, `ANR`, or `NON_FATAL` with complete Google AIP-160 filter support (`versionCode`, `isUserPerceived`, `appProcessState`, `custom_filter`).
+  - `play_get_error_reports`: Universal sample error report and de-obfuscated stack trace drilldown.
+  - `play_list_anomalies`: Access Google Play automated metric anomalies and regression spikes.
+  - `play_list_accessible_apps`: Discover all Google Play applications accessible by the service account.
+- **Enhanced Token Saver**: Added `clean_release_tracks`, `clean_error_issue`, and `clean_anomalies` to strip redundant Protobuf layers.
+- **Chained Autonomous Workflows**: Enabled AI agents to autonomously identify latest production releases, fetch top 10 Crashes/ANRs, and retrieve de-obfuscated stack traces without hardcoded business assumptions.
+
 ## [1.2.0] - 2026-09-14
 
 ### Changed

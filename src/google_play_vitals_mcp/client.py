@@ -262,43 +262,83 @@ class GooglePlayVitalsClient:
         self.cache.set(cache_key, result)
         return result
 
-    def search_error_issues(
-        self,
-        package_name: str | None = None,
-        error_type: str = "ANR",
-        page_size: int = 5,
-    ) -> list[dict[str, Any]]:
-        """Search top error issues clusters."""
+    def fetch_release_tracks(self, package_name: str | None = None) -> dict[str, Any]:
+        """Fetch release tracks and active serving releases from Google Play."""
         pkg = self.resolve_package_name(package_name)
-        cache_key = f"issues_{pkg}_{error_type}_{page_size}"
+        cache_key = f"tracks_{pkg}"
         cached = self.cache.get(cache_key)
         if cached:
             return cached
 
         service = self.get_service()
-        resp = (
-            service.vitals()
-            .errors()
-            .issues()
-            .search(
-                parent=f"apps/{pkg}",
-                filter=f"errorIssueType = {error_type.upper()}",
-                pageSize=page_size,
-            )
-            .execute()
+        resp = service.apps().fetchReleaseFilterOptions(name=f"apps/{pkg}").execute()
+        self.cache.set(cache_key, resp)
+        return resp
+
+    def search_error_issues(
+        self,
+        package_name: str | None = None,
+        error_type: str = "ANR",
+        version_code: int | None = None,
+        is_user_perceived: bool | None = None,
+        app_process_state: str | None = None,
+        custom_filter: str | None = None,
+        page_size: int = 10,
+        page_token: str | None = None,
+        raw_response: bool = False,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
+        """
+        Search error issue clusters with full AIP-160 filter support (versionCode, processState, etc.).
+        """
+        pkg = self.resolve_package_name(package_name)
+        cache_key = (
+            f"issues_{pkg}_{error_type}_{version_code}_{is_user_perceived}_"
+            f"{app_process_state}_{custom_filter}_{page_size}_{page_token}_{raw_response}"
         )
-        issues = resp.get("errorIssues", [])
-        self.cache.set(cache_key, issues)
-        return issues
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+
+        clauses: list[str] = []
+        if error_type:
+            clauses.append(f"errorIssueType = {error_type.upper()}")
+        if version_code is not None:
+            clauses.append(f"versionCode = {version_code}")
+        if is_user_perceived is True:
+            clauses.append("isUserPerceived")
+        if app_process_state:
+            clauses.append(f"appProcessState = {app_process_state.upper()}")
+        if custom_filter:
+            clauses.append(f"({custom_filter.strip()})")
+
+        filter_expr = " AND ".join(clauses) if clauses else None
+
+        service = self.get_service()
+        kwargs: dict[str, Any] = {
+            "parent": f"apps/{pkg}",
+            "pageSize": page_size,
+        }
+        if filter_expr:
+            kwargs["filter"] = filter_expr
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        resp = service.vitals().errors().issues().search(**kwargs).execute()
+
+        result = resp if raw_response else resp.get("errorIssues", [])
+        self.cache.set(cache_key, result)
+        return result
 
     def search_error_reports(
         self,
         issue_name: str,
         page_size: int = 3,
+        page_token: str | None = None,
         package_name: str | None = None,
-    ) -> list[dict[str, Any]]:
+        raw_response: bool = False,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
         """Search individual raw error reports and stack traces for a given issue."""
-        cache_key = f"reports_{issue_name}_{page_size}"
+        cache_key = f"reports_{issue_name}_{page_size}_{page_token}_{raw_response}"
         cached = self.cache.get(cache_key)
         if cached:
             return cached
@@ -318,17 +358,62 @@ class GooglePlayVitalsClient:
         issue_id = issue_name.split("/")[-1]
 
         service = self.get_service()
-        resp = (
-            service.vitals()
-            .errors()
-            .reports()
-            .search(
-                parent=parent_app,
-                filter=f'errorIssueId = "{issue_id}"',
-                pageSize=page_size,
-            )
-            .execute()
-        )
-        reports = resp.get("errorReports", [])
-        self.cache.set(cache_key, reports)
-        return reports
+        kwargs: dict[str, Any] = {
+            "parent": parent_app,
+            "filter": f'errorIssueId = "{issue_id}"',
+            "pageSize": page_size,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        resp = service.vitals().errors().reports().search(**kwargs).execute()
+
+        result = resp if raw_response else resp.get("errorReports", [])
+        self.cache.set(cache_key, result)
+        return result
+
+    def list_anomalies(
+        self,
+        package_name: str | None = None,
+        page_size: int = 10,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List metric anomalies detected by Google Play."""
+        pkg = self.resolve_package_name(package_name)
+        cache_key = f"anomalies_{pkg}_{page_size}_{page_token}"
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+
+        service = self.get_service()
+        kwargs: dict[str, Any] = {
+            "parent": f"apps/{pkg}",
+            "pageSize": page_size,
+        }
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        resp = service.anomalies().list(**kwargs).execute()
+        self.cache.set(cache_key, resp)
+        return resp
+
+    def list_accessible_apps(
+        self,
+        page_size: int = 20,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List accessible applications for the authenticated service account."""
+        cache_key = f"apps_{page_size}_{page_token}"
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+
+        service = self.get_service()
+        kwargs: dict[str, Any] = {"pageSize": page_size}
+        if page_token:
+            kwargs["pageToken"] = page_token
+
+        resp = service.apps().search(**kwargs).execute()
+        self.cache.set(cache_key, resp)
+        return resp
+

@@ -27,13 +27,25 @@ Designed specifically for AI coding assistants and autonomous agents (**Cursor**
 
 ## 🛠️ MCP Tools Overview
 
+### 1. Atomic Core Tools (Recommended for Autonomous Agents)
+
 | Tool Name | Type | Description |
 | :--- | :---: | :--- |
-| **`play_check_status`** | Diagnostics | Self-tests Python dependencies, GCP Service Account key presence, and environment readiness. |
-| **`play_get_top_anr_summary`** | **Core Diagnosis** | Aggregates Top ANR clusters, user volume, impact count, and representative main-thread call stacks in a single invocation. |
+| **`play_get_release_tracks`** | **Release Discovery** | Fetches active release tracks (`PRODUCTION`, `BETA`, `ALPHA`, `INTERNAL`) and serving releases with their release names and `versionCodes`. Essential for discovering latest stable releases. |
+| **`play_search_error_issues`** | **Issue Search** | Searches error clusters (`CRASH`, `ANR`, or `NON_FATAL`) with full AIP-160 filter support (`versionCode`, `isUserPerceived`, `appProcessState`, etc.). Sorted by occurrences and user impact. |
+| **`play_get_error_reports`** | **Deep Drilldown** | Fetches multi-device environmental samples and cleaned, de-obfuscated stack traces for an issue ID or resource name. |
+| **`play_list_anomalies`** | **Anomaly Monitor** | Retrieves sudden metric spikes and regression alerts detected by Google Play algorithms. |
+| **`play_list_accessible_apps`** | **App Discovery** | Lists all Google Play applications accessible by the configured service account. |
+
+### 2. Analytics & Convenience Tools
+
+| Tool Name | Type | Description |
+| :--- | :---: | :--- |
 | **`play_get_metric_trends`** | Metrics | Queries historical daily trends and overall averages for **`ANR`**, **`STARTUP`** (slow cold starts), or **`CRASH`** with optional version code filters. |
 | **`play_compare_versions`** | Analytics | Compares metrics between two app versions (e.g. baseline `100` vs target `101`) and computes net percentage improvement. |
-| **`play_get_raw_error_reports`** | Deep Drilldown | Retrieves detailed device environment metadata (OS version, device model, timestamp) and long stack traces for an issue. |
+| **`play_get_top_anr_summary`** | Quick Triage | One-shot aggregator for top ANR clusters and sample main-thread stack traces. |
+| **`play_check_status`** | Diagnostics | Self-tests Python dependencies, GCP Service Account key presence, and environment readiness. |
+| **`play_get_raw_error_reports`** | Legacy Alias | Backward-compatible alias for `play_get_error_reports`. |
 
 ### 📝 MCP Prompts & Resources
 
@@ -163,6 +175,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 Once configured, simply talk to your AI assistant:
 
+- *"Find the top 10 Crashes and ANRs for our latest production release, along with de-obfuscated stack traces."*
 - *"Check Google Play Vitals connection status."*
 - *"Analyze the top ANR clusters in production right now and show me the problematic stack traces."*
 - *"Show me the daily ANR rate and slow startup rate for the last 14 days."*

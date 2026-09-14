@@ -94,3 +94,58 @@ def test_clean_stack_trace_standard():
         in cleaned["stack_trace"]
     )
     assert "at com.example.app.MainActivity.onStart(MainActivity.java:42)" in cleaned["stack_trace"]
+
+
+def test_clean_release_tracks():
+    from google_play_vitals_mcp.cleaner import clean_release_tracks
+
+    mock_tracks_raw = {
+        "tracks": [
+            {
+                "type": "PRODUCTION",
+                "displayName": "Production Track",
+                "servingReleases": [
+                    {"displayName": "1.0.0", "versionCodes": ["100", "101"]},
+                    {"displayName": "0.9.9", "versionCodes": ["99"]},
+                ],
+            },
+            {
+                "type": "INTERNAL",
+                "displayName": "Internal Track",
+                "servingReleases": [
+                    {"displayName": "1.0.1-alpha", "versionCodes": ["102"]},
+                ],
+            },
+        ]
+    }
+
+    result = clean_release_tracks(mock_tracks_raw)
+    assert len(result["tracks"]) == 2
+    prod = result["tracks"][0]
+    assert prod["track_type"] == "PRODUCTION"
+    assert prod["display_name"] == "Production Track"
+    assert len(prod["serving_releases"]) == 2
+    assert prod["serving_releases"][0]["release_name"] == "1.0.0"
+    assert prod["serving_releases"][0]["version_codes"] == [100, 101]
+
+
+def test_clean_error_issue():
+    from google_play_vitals_mcp.cleaner import clean_error_issue
+
+    mock_issue = {
+        "name": "apps/com.example.app/errorIssues/issue_12345",
+        "type": "CRASH",
+        "cause": "NullPointerException: Attempt to invoke virtual method",
+        "location": "com.example.app.MainActivity:onCreate",
+        "errorReportCount": "1250",
+        "distinctUsers": "890",
+    }
+
+    cleaned = clean_error_issue(mock_issue)
+    assert cleaned["issue_id"] == "issue_12345"
+    assert cleaned["issue_resource_name"] == "apps/com.example.app/errorIssues/issue_12345"
+    assert cleaned["error_type"] == "CRASH"
+    assert cleaned["title"] == "NullPointerException: Attempt to invoke virtual method"
+    assert cleaned["error_report_count"] == 1250
+    assert cleaned["distinct_users"] == 890
+

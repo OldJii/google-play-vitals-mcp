@@ -12,7 +12,13 @@ import sys
 from typing import Any
 
 from . import __version__
-from .cleaner import clean_rate_metrics, clean_stack_trace
+from .cleaner import (
+    clean_anomalies,
+    clean_error_issue,
+    clean_rate_metrics,
+    clean_release_tracks,
+    clean_stack_trace,
+)
 from .client import GooglePlayVitalsClient
 
 # Configure logger to stderr so stdout is strictly preserved for JSON-RPC
@@ -61,6 +67,164 @@ class GooglePlayVitalsMCPServer:
                         "package_name": {
                             "type": "string",
                             "description": "Optional target Android package name to verify.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_get_release_tracks",
+                "description": (
+                    "[Release Discovery] Fetch Google Play release tracks (PRODUCTION, BETA, ALPHA, INTERNAL) "
+                    "and active serving releases with their release names and versionCodes. "
+                    "Essential for automatically discovering the latest production version."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name (e.g. com.example.app). Optional if GOOGLE_PLAY_PACKAGE_NAME is set.",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_search_error_issues",
+                "description": (
+                    "[Atomic Issue Cluster Search] Search Google Play error clusters (CRASH, ANR, or NON_FATAL) "
+                    "with full AIP-160 filter support. Filter by specific versionCode, user-perceived state, "
+                    "or process state (FOREGROUND/BACKGROUND). Sorted by user impact and occurrences."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["error_type"],
+                    "properties": {
+                        "error_type": {
+                            "type": "string",
+                            "enum": ["CRASH", "ANR", "NON_FATAL"],
+                            "description": "Error cluster type to retrieve.",
+                        },
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name. Optional if environment variable is set.",
+                        },
+                        "version_code": {
+                            "type": "integer",
+                            "description": "Optional specific Android versionCode filter (e.g. 100200).",
+                        },
+                        "is_user_perceived": {
+                            "type": "boolean",
+                            "description": "Optional filter to match only user-perceived error issues.",
+                        },
+                        "app_process_state": {
+                            "type": "string",
+                            "enum": ["FOREGROUND", "BACKGROUND"],
+                            "description": "Optional filter for app process state.",
+                        },
+                        "custom_filter": {
+                            "type": "string",
+                            "description": "Optional raw AIP-160 filter expression (e.g. 'deviceModel = \"google/walleye\"').",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Number of top error clusters to retrieve (default: 10, max: 50).",
+                        },
+                        "page_token": {
+                            "type": "string",
+                            "description": "Optional pagination token from previous call.",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_get_error_reports",
+                "description": (
+                    "[Atomic Error Reports & Stack Traces] Fetch detailed multi-device sample reports and cleaned "
+                    "de-obfuscated stack traces for a given error issue ID or resource name."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["issue_id"],
+                    "properties": {
+                        "issue_id": {
+                            "type": "string",
+                            "description": "Error issue ID (e.g. 'd6f045ccd040889d') or full resource name ('apps/.../errorIssues/...').",
+                        },
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name. Optional if environment variable is set.",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Number of sample reports to retrieve (default: 3).",
+                        },
+                        "page_token": {
+                            "type": "string",
+                            "description": "Optional pagination token from previous call.",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_list_anomalies",
+                "description": (
+                    "[Anomaly Detection] List production metric anomalies and sudden regression spikes "
+                    "detected by Google Play algorithms for the application."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name. Optional if environment variable is set.",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Number of anomalies to retrieve (default: 10).",
+                        },
+                        "page_token": {
+                            "type": "string",
+                            "description": "Optional pagination token from previous call.",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_list_accessible_apps",
+                "description": (
+                    "[Account Apps Discovery] List all Google Play applications accessible by the configured "
+                    "GCP Service Account."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Number of apps to retrieve (default: 20).",
+                        },
+                        "page_token": {
+                            "type": "string",
+                            "description": "Optional pagination token from previous call.",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
                         },
                     },
                 },
@@ -558,21 +722,124 @@ class GooglePlayVitalsMCPServer:
         }
 
     def handle_get_raw_error_reports(self, args: dict[str, Any]) -> dict[str, Any]:
-        issue_name = args.get("issue_name")
-        if not issue_name:
-            raise ValueError("Parameter 'issue_name' is required.")
-        page_size = args.get("page_size", 3)
+        return self.handle_get_error_reports(args)
+
+    def handle_get_release_tracks(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
         cred_path = args.get("credentials_path")
         if cred_path:
             self.client.credentials_path = cred_path
 
-        reports = self.client.search_error_reports(issue_name=issue_name, page_size=page_size)
+        raw_tracks = self.client.fetch_release_tracks(package_name=pkg)
+        cleaned = clean_release_tracks(raw_tracks)
+        return {
+            "package_name": self.client.resolve_package_name(pkg),
+            "tracks": cleaned.get("tracks", []),
+        }
+
+    def handle_search_error_issues(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
+        error_type = args.get("error_type", "CRASH").upper()
+        version_code = args.get("version_code")
+        is_user_perceived = args.get("is_user_perceived")
+        app_process_state = args.get("app_process_state")
+        custom_filter = args.get("custom_filter")
+        page_size = args.get("page_size", 10)
+        page_token = args.get("page_token")
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        raw_resp = self.client.search_error_issues(
+            package_name=pkg,
+            error_type=error_type,
+            version_code=version_code,
+            is_user_perceived=is_user_perceived,
+            app_process_state=app_process_state,
+            custom_filter=custom_filter,
+            page_size=page_size,
+            page_token=page_token,
+            raw_response=True,
+        )
+
+        issues_raw = raw_resp.get("errorIssues", []) if isinstance(raw_resp, dict) else raw_resp
+        cleaned_issues = [clean_error_issue(i) for i in issues_raw]
+
+        return {
+            "package_name": self.client.resolve_package_name(pkg),
+            "error_type": error_type,
+            "version_filter": version_code if version_code is not None else "ALL_VERSIONS",
+            "retrieved_issues_count": len(cleaned_issues),
+            "error_issues": cleaned_issues,
+            "next_page_token": raw_resp.get("nextPageToken") if isinstance(raw_resp, dict) else None,
+        }
+
+    def handle_get_error_reports(self, args: dict[str, Any]) -> dict[str, Any]:
+        issue_id = args.get("issue_id") or args.get("issue_name")
+        if not issue_id:
+            raise ValueError("Parameter 'issue_id' (or 'issue_name') is required.")
+        page_size = args.get("page_size", 3)
+        page_token = args.get("page_token")
+        pkg = args.get("package_name")
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        raw_resp = self.client.search_error_reports(
+            issue_name=issue_id,
+            page_size=page_size,
+            page_token=page_token,
+            package_name=pkg,
+            raw_response=True,
+        )
+
+        reports = raw_resp.get("errorReports", []) if isinstance(raw_resp, dict) else raw_resp
         cleaned_list = [clean_stack_trace(r) for r in reports]
 
         return {
-            "issue_name": issue_name,
+            "issue_id": issue_id.split("/")[-1] if "/" in issue_id else issue_id,
+            "issue_resource_name": issue_id,
             "reports_count": len(cleaned_list),
             "sample_reports": cleaned_list,
+            "next_page_token": raw_resp.get("nextPageToken") if isinstance(raw_resp, dict) else None,
+        }
+
+    def handle_list_anomalies(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
+        page_size = args.get("page_size", 10)
+        page_token = args.get("page_token")
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        raw_anomalies = self.client.list_anomalies(
+            package_name=pkg, page_size=page_size, page_token=page_token
+        )
+        cleaned = clean_anomalies(raw_anomalies)
+        cleaned["package_name"] = self.client.resolve_package_name(pkg)
+        return cleaned
+
+    def handle_list_accessible_apps(self, args: dict[str, Any]) -> dict[str, Any]:
+        page_size = args.get("page_size", 20)
+        page_token = args.get("page_token")
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        raw_apps = self.client.list_accessible_apps(page_size=page_size, page_token=page_token)
+        apps_list = raw_apps.get("apps", [])
+        cleaned_apps = [
+            {
+                "package_name": a.get("packageName", ""),
+                "name": a.get("name", ""),
+                "display_name": a.get("displayName", ""),
+            }
+            for a in apps_list
+        ]
+        return {
+            "apps_count": len(cleaned_apps),
+            "apps": cleaned_apps,
+            "next_page_token": raw_apps.get("nextPageToken"),
         }
 
     # ==========================================================================
@@ -583,6 +850,16 @@ class GooglePlayVitalsMCPServer:
         """Execute a tool and return JSON-serializable dictionary."""
         if name == "play_check_status":
             return self.handle_check_status(arguments)
+        elif name == "play_get_release_tracks":
+            return self.handle_get_release_tracks(arguments)
+        elif name == "play_search_error_issues":
+            return self.handle_search_error_issues(arguments)
+        elif name == "play_get_error_reports":
+            return self.handle_get_error_reports(arguments)
+        elif name == "play_list_anomalies":
+            return self.handle_list_anomalies(arguments)
+        elif name == "play_list_accessible_apps":
+            return self.handle_list_accessible_apps(arguments)
         elif name == "play_get_top_anr_summary":
             return self.handle_get_top_anr_summary(arguments)
         elif name == "play_get_metric_trends":

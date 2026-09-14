@@ -16,6 +16,11 @@ def test_tool_definitions():
 
     expected = [
         "play_check_status",
+        "play_get_release_tracks",
+        "play_search_error_issues",
+        "play_get_error_reports",
+        "play_list_anomalies",
+        "play_list_accessible_apps",
         "play_get_top_anr_summary",
         "play_get_metric_trends",
         "play_compare_versions",
@@ -28,6 +33,79 @@ def test_tool_definitions():
     for t in tools:
         assert "inputSchema" in t
         assert t["inputSchema"]["type"] == "object"
+
+
+def test_dispatch_atomic_tools():
+    from unittest.mock import MagicMock
+
+    server = GooglePlayVitalsMCPServer(default_package_name="com.example.app")
+    server.client = MagicMock()
+    server.client.resolve_package_name.return_value = "com.example.app"
+
+    # 1. play_get_release_tracks
+    server.client.fetch_release_tracks.return_value = {
+        "tracks": [
+            {
+                "type": "PRODUCTION",
+                "displayName": "Production",
+                "servingReleases": [{"displayName": "2.0.0", "versionCodes": ["200"]}],
+            }
+        ]
+    }
+    tracks_res = server.dispatch_tool("play_get_release_tracks", {"package_name": "com.example.app"})
+    assert tracks_res["package_name"] == "com.example.app"
+    assert tracks_res["tracks"][0]["track_type"] == "PRODUCTION"
+
+    # 2. play_search_error_issues
+    server.client.search_error_issues.return_value = {
+        "errorIssues": [
+            {
+                "name": "apps/com.example.app/errorIssues/crash_1",
+                "type": "CRASH",
+                "cause": "NullPointerException",
+                "errorReportCount": "500",
+                "distinctUsers": "300",
+            }
+        ],
+        "nextPageToken": None,
+    }
+    issues_res = server.dispatch_tool(
+        "play_search_error_issues",
+        {
+            "package_name": "com.example.app",
+            "error_type": "CRASH",
+            "version_code": 200,
+            "page_size": 10,
+        },
+    )
+    assert issues_res["error_type"] == "CRASH"
+    assert issues_res["version_filter"] == 200
+    assert issues_res["retrieved_issues_count"] == 1
+    assert issues_res["error_issues"][0]["issue_id"] == "crash_1"
+
+    # 3. play_get_error_reports
+    server.client.search_error_reports.return_value = {
+        "errorReports": [
+            {
+                "deviceModel": {"name": "Pixel 8"},
+                "osVersion": {"apiLevel": 34},
+                "eventTime": "2026-09-14T10:00:00Z",
+                "stackTrace": {
+                    "exceptionClass": "java.lang.NullPointerException",
+                    "frames": [],
+                },
+            }
+        ],
+        "nextPageToken": None,
+    }
+    reports_res = server.dispatch_tool(
+        "play_get_error_reports",
+        {"issue_id": "crash_1", "package_name": "com.example.app"},
+    )
+    assert reports_res["issue_id"] == "crash_1"
+    assert reports_res["reports_count"] == 1
+    assert reports_res["sample_reports"][0]["device"] == "Pixel 8"
+
 
 
 def test_handle_check_status():

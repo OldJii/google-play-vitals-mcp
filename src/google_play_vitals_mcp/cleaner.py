@@ -94,6 +94,103 @@ def clean_rate_metrics(
     }
 
 
+def clean_release_tracks(raw_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Clean and flatten Google Play release tracks and active serving releases.
+    Strips raw protobuf envelopes into a clean, LLM-digestible track summary.
+    """
+    raw_tracks = raw_data.get("tracks", [])
+    cleaned_tracks: list[dict[str, Any]] = []
+
+    for t in raw_tracks:
+        track_type = t.get("type", "UNSPECIFIED")
+        display_name = t.get("displayName", track_type)
+        serving_releases_raw = t.get("servingReleases", [])
+        releases: list[dict[str, Any]] = []
+
+        for r in serving_releases_raw:
+            r_name = r.get("displayName", "")
+            raw_codes = r.get("versionCodes", [])
+            codes: list[int] = []
+            for c in raw_codes:
+                try:
+                    codes.append(int(c))
+                except (ValueError, TypeError):
+                    continue
+            releases.append(
+                {
+                    "release_name": r_name,
+                    "version_codes": codes,
+                }
+            )
+
+        cleaned_tracks.append(
+            {
+                "track_type": track_type,
+                "display_name": display_name,
+                "serving_releases": releases,
+            }
+        )
+
+    return {"tracks": cleaned_tracks}
+
+
+def clean_error_issue(raw_issue: dict[str, Any]) -> dict[str, Any]:
+    """
+    Clean a single ErrorIssue cluster by extracting core diagnostic fields.
+    """
+    resource_name = raw_issue.get("name", "")
+    issue_id = resource_name.split("/")[-1] if "/" in resource_name else resource_name
+    title = raw_issue.get("cause") or raw_issue.get("location") or issue_id
+
+    try:
+        report_count = int(raw_issue.get("errorReportCount", "0"))
+    except (ValueError, TypeError):
+        report_count = 0
+
+    try:
+        distinct_users = int(raw_issue.get("distinctUsers", "0"))
+    except (ValueError, TypeError):
+        distinct_users = 0
+
+    return {
+        "issue_id": issue_id,
+        "issue_resource_name": resource_name,
+        "error_type": raw_issue.get("type", "UNKNOWN"),
+        "title": title,
+        "cause": raw_issue.get("cause", ""),
+        "location": raw_issue.get("location", ""),
+        "error_report_count": report_count,
+        "distinct_users": distinct_users,
+    }
+
+
+def clean_anomalies(raw_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Clean and structure anomalies detected by Google Play.
+    """
+    raw_anomalies = raw_data.get("anomalies", [])
+    cleaned_anomalies: list[dict[str, Any]] = []
+
+    for a in raw_anomalies:
+        cleaned_anomalies.append(
+            {
+                "name": a.get("name", ""),
+                "metric": a.get("metricSet", ""),
+                "metric_type": a.get("metric", ""),
+                "activity": a.get("activityRecord", {}),
+                "timeline_spec": a.get("timelineSpec", {}),
+            }
+        )
+
+    return {
+        "anomalies_count": len(cleaned_anomalies),
+        "anomalies": cleaned_anomalies,
+        "next_page_token": raw_data.get("nextPageToken"),
+    }
+
+
+
 def clean_stack_trace(raw_report: dict[str, Any], max_frames: int = 30) -> dict[str, Any]:
     """
     Extract and reassemble raw error report into standard, readable Java stack trace.

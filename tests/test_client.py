@@ -47,3 +47,40 @@ def test_build_timeline_spec():
     assert "startTime" in spec
     assert "endTime" in spec
     assert spec["startTime"]["year"] > 2000
+
+
+def test_search_error_issues_filter_composition():
+    from unittest.mock import MagicMock
+
+    client = GooglePlayVitalsClient(default_package_name="com.example.app")
+    mock_service = MagicMock()
+    mock_issues = MagicMock()
+    mock_search = MagicMock()
+    mock_execute = MagicMock(return_value={"errorIssues": [{"name": "apps/com.example.app/errorIssues/test1"}]})
+
+    mock_service.vitals().errors().issues().search = mock_search
+    mock_search.return_value.execute = mock_execute
+    client._service = mock_service
+
+    # Test full filters: error_type, version_code, is_user_perceived, app_process_state
+    client.search_error_issues(
+        package_name="com.example.app",
+        error_type="CRASH",
+        version_code=100200,
+        is_user_perceived=True,
+        app_process_state="FOREGROUND",
+        custom_filter='deviceModel = "google/pixel"',
+        page_size=10,
+    )
+
+    mock_search.assert_called_once()
+    _, kwargs = mock_search.call_args
+    assert kwargs["parent"] == "apps/com.example.app"
+    assert kwargs["pageSize"] == 10
+    filter_arg = kwargs["filter"]
+    assert "errorIssueType = CRASH" in filter_arg
+    assert "versionCode = 100200" in filter_arg
+    assert "isUserPerceived" in filter_arg
+    assert "appProcessState = FOREGROUND" in filter_arg
+    assert '(deviceModel = "google/pixel")' in filter_arg
+
