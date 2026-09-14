@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-14
+
+### Added
+- **Browser-Based OAuth 2.0 One-Click Login**: New `google-play-vitals-mcp login` CLI command enabling interactive browser authentication without requiring any `service_account.json` credential files.
+- **Credential Storage & Auto-Refresh**: Secure local token persistence in `~/.config/google-play-vitals/user_credentials.json` (chmod 600) with automatic OAuth2 access token refresh.
+- **Authentication Priority Engine**: Automatic discovery hierarchy prioritizing JSON strings -> Service Account files -> User OAuth2 browser tokens -> System Google Cloud ADC.
+- **Logout Support**: New `google-play-vitals-mcp logout` CLI command to easily clear cached credentials.
+
 ## [1.0.0] - 2026-09-14
 
 ### Added

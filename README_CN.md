@@ -67,14 +67,26 @@ npx -y @smithery/cli install google-play-vitals-mcp --client cursor
 docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
-### 2. Google Cloud 与 Play Console 准备
+### 2. 身份认证与凭据配置（支持免文件）
 
-1. 打开 **[Google Play Console](https://play.google.com/console)** -> **设置** -> **API 访问权限**；
-2. 关联已有或新建一个 **Google Cloud 项目**；
-3. 在“服务账号 (Service Accounts)”栏，点击**创建新服务账号**；
-4. 为该服务账号授予 **“查看应用质量数据（只读）”** 权限；
-5. 前往 **Google Cloud Console** -> **IAM 和管理** -> **服务账号**，选择刚创建的账号，进入 **“密钥”** 标签页，创建并下载 **JSON 格式密钥**；
-6. 将下载的 JSON 文件妥善放置于本地（例如 `~/.config/gcp/play_service_account.json`）。
+**方式 A: 浏览器一键登录（推荐，无需任何 JSON 文件，零配置）**
+```bash
+# 启动本地浏览器授权，登录 Google 账号后自动缓存凭据（支持自动刷新）
+google-play-vitals-mcp login
+```
+
+**方式 B: 使用 Google Cloud 服务账号 JSON 密钥文件**
+1. 由管理员在 Google Play Console -> 设置 -> API 访问权限，创建服务账号并分配“查看应用质量数据（只读）”权限；
+2. 导出 JSON 密钥文件；
+3. 设置系统环境变量：
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/play_service_account.json"
+   ```
+
+**方式 C: CI/CD 环境变量纯文本 JSON**
+```bash
+export GOOGLE_PLAY_CREDENTIALS_JSON='{"type": "service_account", "project_id": "..."}'
+```
 
 ---
 

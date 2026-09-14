@@ -98,6 +98,10 @@ venv.bak/
 *.key
 *.pem
 
+# Local virtual environment and locks
+.venv/
+uv.lock
+
 # Editors & IDEs
 .idea/
 .vscode/

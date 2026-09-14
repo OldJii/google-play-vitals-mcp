@@ -373,22 +373,48 @@ class GooglePlayVitalsMCPServer:
         key_exists = bool(cred_path and os.path.exists(os.path.expanduser(cred_path)))
         has_env_json = bool(os.environ.get("GOOGLE_PLAY_CREDENTIALS_JSON"))
 
-        ready = deps_ok and (key_exists or has_env_json)
+        # Check OAuth 2.0 user credentials or system ADC
+        has_oauth_user = False
+        try:
+            from .auth import USER_CREDENTIALS_FILE
+
+            has_oauth_user = os.path.exists(USER_CREDENTIALS_FILE)
+        except Exception:
+            pass
+
+        has_gcloud_adc = os.path.exists(
+            os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
+        )
+
+        creds_ok = key_exists or has_env_json or has_oauth_user or has_gcloud_adc
+        ready = deps_ok and creds_ok
+
+        auth_type = "none"
+        if has_env_json:
+            auth_type = "service_account_json_env"
+        elif key_exists:
+            auth_type = "service_account_file"
+        elif has_oauth_user:
+            auth_type = "oauth2_user_browser"
+        elif has_gcloud_adc:
+            auth_type = "gcloud_adc"
 
         return {
             "status": "ready" if ready else "action_required",
             "server_version": self.server_version,
             "dependencies_installed": deps_ok,
-            "credentials_configured": key_exists or has_env_json,
+            "credentials_configured": creds_ok,
+            "auth_type": auth_type,
             "credentials_path": cred_path or "(none specified)",
             "credentials_json_env_present": has_env_json,
+            "oauth2_browser_login_present": has_oauth_user,
             "configured_package_name": pkg_name or "(none specified)",
             "capabilities_supported": ["tools", "prompts", "resources"],
             "setup_guide": (
-                "To connect to Google Play: 1. In Google Play Console -> Setup -> API access, "
-                "link a Google Cloud Service Account with 'View app quality data' read-only permission. "
-                "2. Download the JSON key and set GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json "
-                "or pass 'credentials_path'."
+                "Authentication options:\n"
+                "  1. One-click browser login (no JSON files required): run 'google-play-vitals-mcp login'\n"
+                "  2. Service Account file: set GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json\n"
+                "  3. Environment JSON: set GOOGLE_PLAY_CREDENTIALS_JSON='{...}'"
             ),
         }
 

@@ -67,16 +67,25 @@ npx -y @smithery/cli install google-play-vitals-mcp --client cursor
 docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
-### 2. Google Cloud & Play Console Setup
+### 2. Authentication & Credentials (No-File Login Supported)
 
-To connect to your Android app's Play Vitals data:
+**Option A: Browser-Based One-Click Login (Recommended, Zero JSON Files)**
+```bash
+# Launches local browser OAuth2 authorization, caches token with auto-refresh
+google-play-vitals-mcp login
+```
 
-1. Go to the **[Google Play Console](https://play.google.com/console)** -> **Setup** -> **API access**.
-2. Link an existing **Google Cloud Project** or create a new one.
-3. In the Service Accounts section, click **Create new service account** (or select an existing one).
-4. Grant the Service Account the **"View app quality data (read-only)"** permission.
-5. In the **Google Cloud Console**, navigate to **IAM & Admin** -> **Service Accounts**, select the account, go to the **Keys** tab, and generate a new **JSON key**.
-6. Save the downloaded JSON key file securely (e.g., `~/.config/gcp/play_service_account.json`).
+**Option B: Google Cloud Service Account JSON Key**
+1. Ask your Google Play Console administrator (Account Owner) for a Service Account JSON key with "View app quality data" read-only permission.
+2. Set the environment variable:
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/play_service_account.json"
+   ```
+
+**Option C: CI/CD Plaintext JSON**
+```bash
+export GOOGLE_PLAY_CREDENTIALS_JSON='{"type": "service_account", "project_id": "..."}'
+```
 
 ---
 

@@ -3,7 +3,10 @@ CLI Entry Point for Google Play Vitals MCP Server
 Supports running stdio server, self-diagnostics check, and version inquiry.
 """
 
+from __future__ import annotations
+
 import json
+import sys
 
 import click
 
@@ -87,6 +90,49 @@ def check_command(ctx: click.Context) -> None:
         }
     )
     click.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+@cli.command("login")
+@click.option(
+    "--client-id",
+    type=str,
+    default=None,
+    help="Optional custom Google OAuth 2.0 Client ID.",
+)
+@click.option(
+    "--client-secret",
+    type=str,
+    default=None,
+    help="Optional custom Google OAuth 2.0 Client Secret.",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=0,
+    help="Local server port for OAuth callback (default: random free port).",
+)
+def login_command(client_id: str | None, client_secret: str | None, port: int) -> None:
+    """Authorize via browser one-click login (no service_account.json needed)."""
+    try:
+        from .auth import login_via_browser
+
+        saved_path = login_via_browser(client_id=client_id, client_secret=client_secret, port=port)
+        click.echo(f"🎉 Login successful! OAuth 2.0 credentials saved to: {saved_path}")
+        click.echo("You can now use Google Play Vitals MCP without any service_account.json file.")
+    except Exception as e:
+        click.echo(f"❌ Login failed: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command("logout")
+def logout_command() -> None:
+    """Clear locally saved browser OAuth 2.0 credentials."""
+    from .auth import logout
+
+    if logout():
+        click.echo("👋 Successfully logged out and deleted local OAuth2 credentials.")
+    else:
+        click.echo("ℹ️ No saved OAuth2 credentials were found.")
 
 
 if __name__ == "__main__":
