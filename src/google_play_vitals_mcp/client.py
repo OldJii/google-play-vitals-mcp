@@ -111,25 +111,15 @@ class GooglePlayVitalsClient:
                         f"Failed to load credentials from file {expanded_path}: {e}"
                     ) from e
 
-        # Priority 3: OAuth 2.0 User Credentials (from browser-based login)
-        if creds is None:
-            try:
-                from .auth import load_user_credentials
-
-                creds = load_user_credentials()
-            except Exception as e:
-                logger.debug("No user OAuth2 credentials found: %s", e)
-
-        # Priority 4: Google Application Default Credentials (ADC)
+        # Priority 3: Google Application Default Credentials (ADC)
         if creds is None:
             try:
                 creds, _ = google.auth.default(scopes=SCOPES)
             except Exception as e:
                 raise ValueError(
-                    "No valid Google Cloud credentials found. Please authenticate via one of:\n"
-                    "  1. Browser login: run 'google-play-vitals-mcp login'\n"
-                    "  2. Service Account JSON file: set GOOGLE_APPLICATION_CREDENTIALS\n"
-                    "  3. Raw JSON string: set GOOGLE_PLAY_CREDENTIALS_JSON"
+                    "No valid Google Cloud Service Account credentials found.\n"
+                    "Please set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service_account.json\n"
+                    "or provide credentials_json / GOOGLE_PLAY_CREDENTIALS_JSON."
                 ) from e
 
         quota_project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(

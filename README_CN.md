@@ -67,23 +67,18 @@ npx -y @smithery/cli install google-play-vitals-mcp --client cursor
 docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
-### 2. 身份认证与凭据配置（支持免文件）
+### 2. 身份认证与凭据配置
 
-**方式 A: 浏览器一键登录（推荐，无需任何 JSON 文件，零配置）**
-```bash
-# 启动本地浏览器授权，登录 Google 账号后自动缓存凭据（支持自动刷新）
-google-play-vitals-mcp login
-```
+Google Play Developer Reporting API 是企业级报表服务，必须使用拥有“查看应用质量数据（只读）”权限的 **Google Cloud 服务账号 (Service Account)** 进行认证：
 
-**方式 B: 使用 Google Cloud 服务账号 JSON 密钥文件**
-1. 由管理员在 Google Play Console -> 设置 -> API 访问权限，创建服务账号并分配“查看应用质量数据（只读）”权限；
-2. 导出 JSON 密钥文件；
-3. 设置系统环境变量：
+**方式 A: 使用服务账号 JSON 密钥文件（推荐）**
+1. 由拥有 Google Play Console 管理权限（Owner/Admin）的负责人前往 **设置** -> **API 访问权限**，创建只读服务账号并下载 JSON 密钥；
+2. 设置系统环境变量：
    ```bash
    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/play_service_account.json"
    ```
 
-**方式 C: CI/CD 环境变量纯文本 JSON**
+**方式 B: CI/CD 环境变量纯文本 JSON**
 ```bash
 export GOOGLE_PLAY_CREDENTIALS_JSON='{"type": "service_account", "project_id": "..."}'
 ```

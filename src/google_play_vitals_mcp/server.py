@@ -372,21 +372,11 @@ class GooglePlayVitalsMCPServer:
 
         key_exists = bool(cred_path and os.path.exists(os.path.expanduser(cred_path)))
         has_env_json = bool(os.environ.get("GOOGLE_PLAY_CREDENTIALS_JSON"))
-
-        # Check OAuth 2.0 user credentials or system ADC
-        has_oauth_user = False
-        try:
-            from .auth import USER_CREDENTIALS_FILE
-
-            has_oauth_user = os.path.exists(USER_CREDENTIALS_FILE)
-        except Exception:
-            pass
-
         has_gcloud_adc = os.path.exists(
             os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
         )
 
-        creds_ok = key_exists or has_env_json or has_oauth_user or has_gcloud_adc
+        creds_ok = key_exists or has_env_json or has_gcloud_adc
         ready = deps_ok and creds_ok
 
         auth_type = "none"
@@ -394,8 +384,6 @@ class GooglePlayVitalsMCPServer:
             auth_type = "service_account_json_env"
         elif key_exists:
             auth_type = "service_account_file"
-        elif has_oauth_user:
-            auth_type = "oauth2_user_browser"
         elif has_gcloud_adc:
             auth_type = "gcloud_adc"
 
@@ -407,14 +395,13 @@ class GooglePlayVitalsMCPServer:
             "auth_type": auth_type,
             "credentials_path": cred_path or "(none specified)",
             "credentials_json_env_present": has_env_json,
-            "oauth2_browser_login_present": has_oauth_user,
             "configured_package_name": pkg_name or "(none specified)",
             "capabilities_supported": ["tools", "prompts", "resources"],
             "setup_guide": (
-                "Authentication options:\n"
-                "  1. One-click browser login (no JSON files required): run 'google-play-vitals-mcp login'\n"
-                "  2. Service Account file: set GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json\n"
-                "  3. Environment JSON: set GOOGLE_PLAY_CREDENTIALS_JSON='{...}'"
+                "Authentication setup:\n"
+                "  1. Obtain a Google Cloud Service Account JSON key from your Google Play Console Account Owner.\n"
+                "  2. Set environment variable: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service_account.json\n"
+                "  3. Or pass credentials_json / GOOGLE_PLAY_CREDENTIALS_JSON='{...}'"
             ),
         }
 
@@ -610,25 +597,21 @@ class GooglePlayVitalsMCPServer:
     def _format_error_payload(self, e: Exception) -> dict[str, Any]:
         """Convert runtime exceptions into actionable, diagnostic JSON payloads."""
         err_str = str(e)
-        if "requires a quota project" in err_str:
+        if (
+            "requires a quota project" in err_str
+            or "PERMISSION_DENIED" in err_str
+            or "403" in err_str
+        ):
             return {
-                "error_code": "QUOTA_PROJECT_REQUIRED",
-                "message": "Google Cloud requires a Quota Project when authenticating with OAuth2 user credentials.",
-                "guidance": (
-                    "To fix: set your team's Google Cloud project ID in environment variable:\n"
-                    "  export GOOGLE_CLOUD_PROJECT='<YOUR_GCP_PROJECT_ID>'\n"
-                    "Or use a Service Account JSON key exported by your Account Owner:\n"
-                    "  export GOOGLE_APPLICATION_CREDENTIALS='/path/to/service_account.json'"
+                "error_code": "PERMISSION_OR_QUOTA_ERROR",
+                "message": (
+                    "Google Play Reporting API requires a valid GCP Service Account authorized with "
+                    "'View app quality data' read-only permission."
                 ),
-                "raw_error": err_str,
-            }
-        elif "403" in err_str or "PERMISSION_DENIED" in err_str:
-            return {
-                "error_code": "PERMISSION_DENIED",
-                "message": "The authenticated Google account does not have permission to view Android Vitals for this app.",
                 "guidance": (
-                    "Please ask your Google Play Console Account Owner to grant 'View app quality data' "
-                    "read-only permission to your account, or provide a shared service_account.json key."
+                    "To resolve: Ask your Google Play Console Account Owner to create a Service Account, "
+                    "grant 'View app quality data' permission in API access, and export the JSON key.\n"
+                    "Then set: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service_account.json"
                 ),
                 "raw_error": err_str,
             }

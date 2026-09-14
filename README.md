@@ -67,22 +67,18 @@ npx -y @smithery/cli install google-play-vitals-mcp --client cursor
 docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
-### 2. Authentication & Credentials (No-File Login Supported)
+### 2. Authentication & Credentials
 
-**Option A: Browser-Based One-Click Login (Recommended, Zero JSON Files)**
-```bash
-# Launches local browser OAuth2 authorization, caches token with auto-refresh
-google-play-vitals-mcp login
-```
+Google Play Developer Reporting API requires enterprise authentication via a **Google Cloud Service Account** authorized with "View app quality data" read-only permission:
 
-**Option B: Google Cloud Service Account JSON Key**
+**Option A: Google Cloud Service Account JSON Key (Standard)**
 1. Ask your Google Play Console administrator (Account Owner) for a Service Account JSON key with "View app quality data" read-only permission.
 2. Set the environment variable:
    ```bash
    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/play_service_account.json"
    ```
 
-**Option C: CI/CD Plaintext JSON**
+**Option B: CI/CD Plaintext JSON**
 ```bash
 export GOOGLE_PLAY_CREDENTIALS_JSON='{"type": "service_account", "project_id": "..."}'
 ```
