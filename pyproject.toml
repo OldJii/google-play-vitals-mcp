@@ -61,11 +61,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/google-play-vitals-mcp"
-Documentation = "https://github.com/your-username/google-play-vitals-mcp#readme"
-Repository = "https://github.com/your-username/google-play-vitals-mcp.git"
-Issues = "https://github.com/your-username/google-play-vitals-mcp/issues"
-Changelog = "https://github.com/your-username/google-play-vitals-mcp/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/OldJii/google-play-vitals-mcp"
+Documentation = "https://github.com/OldJii/google-play-vitals-mcp#readme"
+Repository = "https://github.com/OldJii/google-play-vitals-mcp.git"
+Issues = "https://github.com/OldJii/google-play-vitals-mcp/issues"
+Changelog = "https://github.com/OldJii/google-play-vitals-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 google-play-vitals-mcp = "google_play_vitals_mcp.cli:cli"

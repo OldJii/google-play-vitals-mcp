@@ -10,7 +10,7 @@ Please be respectful, collaborative, and constructive when reporting issues, sug
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/google-play-vitals-mcp.git
+   git clone https://github.com/OldJii/google-play-vitals-mcp.git
    cd google-play-vitals-mcp
    ```
 
