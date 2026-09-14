@@ -607,6 +607,33 @@ class GooglePlayVitalsMCPServer:
         else:
             raise ValueError(f"Unknown tool: '{name}'")
 
+    def _format_error_payload(self, e: Exception) -> dict[str, Any]:
+        """Convert runtime exceptions into actionable, diagnostic JSON payloads."""
+        err_str = str(e)
+        if "requires a quota project" in err_str:
+            return {
+                "error_code": "QUOTA_PROJECT_REQUIRED",
+                "message": "Google Cloud requires a Quota Project when authenticating with OAuth2 user credentials.",
+                "guidance": (
+                    "To fix: set your team's Google Cloud project ID in environment variable:\n"
+                    "  export GOOGLE_CLOUD_PROJECT='<YOUR_GCP_PROJECT_ID>'\n"
+                    "Or use a Service Account JSON key exported by your Account Owner:\n"
+                    "  export GOOGLE_APPLICATION_CREDENTIALS='/path/to/service_account.json'"
+                ),
+                "raw_error": err_str,
+            }
+        elif "403" in err_str or "PERMISSION_DENIED" in err_str:
+            return {
+                "error_code": "PERMISSION_DENIED",
+                "message": "The authenticated Google account does not have permission to view Android Vitals for this app.",
+                "guidance": (
+                    "Please ask your Google Play Console Account Owner to grant 'View app quality data' "
+                    "read-only permission to your account, or provide a shared service_account.json key."
+                ),
+                "raw_error": err_str,
+            }
+        return {"error": err_str}
+
     # ==========================================================================
     # 6. Standard MCP JSON-RPC 2.0 stdio Loop
     # ==========================================================================
@@ -696,6 +723,7 @@ class GooglePlayVitalsMCPServer:
                     }
                 except Exception as e:
                     logger.exception("Error executing tool %s", tool_name)
+                    err_payload = self._format_error_payload(e)
                     response = {
                         "jsonrpc": "2.0",
                         "id": req_id,
@@ -703,7 +731,7 @@ class GooglePlayVitalsMCPServer:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": json.dumps({"error": str(e)}, ensure_ascii=False),
+                                    "text": json.dumps(err_payload, indent=2, ensure_ascii=False),
                                 }
                             ],
                             "isError": True,

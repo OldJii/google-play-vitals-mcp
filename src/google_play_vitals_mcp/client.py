@@ -132,6 +132,15 @@ class GooglePlayVitalsClient:
                     "  3. Raw JSON string: set GOOGLE_PLAY_CREDENTIALS_JSON"
                 ) from e
 
+        quota_project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(
+            "GOOGLE_QUOTA_PROJECT"
+        )
+        if quota_project and hasattr(creds, "with_quota_project"):
+            try:
+                creds = creds.with_quota_project(quota_project)
+            except Exception as e:
+                logger.debug("Failed to set quota project %s: %s", quota_project, e)
+
         self._service = build(
             "playdeveloperreporting",
             "v1beta1",
