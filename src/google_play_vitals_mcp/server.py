@@ -1,0 +1,535 @@
+"""
+Google Play Vitals MCP Server Implementation
+High-performance, LLM-optimized Model Context Protocol server.
+Compatible with Cursor, Claude Desktop, Claude Code, Codex, Windsurf, and any MCP client.
+"""
+
+import json
+import logging
+import os
+import sys
+from typing import Any
+
+from . import __version__
+from .cleaner import clean_rate_metrics, clean_stack_trace
+from .client import GooglePlayVitalsClient
+
+# Configure logger to stderr so stdout is strictly preserved for JSON-RPC
+logger = logging.getLogger("google_play_vitals_mcp")
+handler = logging.StreamHandler(sys.stderr)
+handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+
+class GooglePlayVitalsMCPServer:
+    """Universal MCP Server providing Google Play Android Vitals tools."""
+
+    def __init__(
+        self,
+        default_package_name: str | None = None,
+        default_credentials_path: str | None = None,
+    ):
+        self.client = GooglePlayVitalsClient(
+            credentials_path=default_credentials_path,
+            default_package_name=default_package_name,
+        )
+        self.server_name = "google-play-vitals-mcp"
+        self.server_version = __version__
+
+    def get_tool_definitions(self) -> list[dict[str, Any]]:
+        """Return MCP tool schemas adhering to Model Context Protocol specification."""
+        return [
+            {
+                "name": "play_check_status",
+                "description": (
+                    "Verify Google Play API dependencies, GCP Service Account credentials, "
+                    "and environment readiness."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP service account JSON key file.",
+                        },
+                        "package_name": {
+                            "type": "string",
+                            "description": "Optional target Android package name to verify.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_get_top_anr_summary",
+                "description": (
+                    "[One-shot Diagnosis] Retrieve top ANR error clusters along with affected "
+                    "user counts, occurrence rates, and representative cleaned main-thread stack traces. "
+                    "Eliminates back-and-forth round trips."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name (e.g., com.example.app). Optional if GOOGLE_PLAY_PACKAGE_NAME is set.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Number of top ANR clusters to retrieve (default: 5).",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_get_metric_trends",
+                "description": (
+                    "[Token-efficient Metrics] Query trends and daily averages for ANR rate, "
+                    "slow cold start rate (Baseline Profile verification), or Crash rate. "
+                    "Redundant Protobuf metadata is stripped."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["metric_type"],
+                    "properties": {
+                        "metric_type": {
+                            "type": "string",
+                            "enum": ["ANR", "STARTUP", "CRASH"],
+                            "description": (
+                                "Metric category: 'ANR' (Application Not Responding), "
+                                "'STARTUP' (Slow cold start rate for Baseline Profile evaluation), "
+                                "or 'CRASH' (Fatal crash rate)."
+                            ),
+                        },
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name. Optional if environment variable is set.",
+                        },
+                        "days": {
+                            "type": "integer",
+                            "description": "Number of past days to query (default: 7).",
+                        },
+                        "version_code": {
+                            "type": "integer",
+                            "description": "Optional specific Android versionCode filter (e.g. 100200).",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_compare_versions",
+                "description": (
+                    "[Version Comparison] Compare metrics between two app versions (e.g., before and after "
+                    "Baseline Profile / ANR fixes). Automatically calculates delta and percentage improvement."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["baseline_version", "target_version"],
+                    "properties": {
+                        "baseline_version": {
+                            "type": "integer",
+                            "description": "Baseline/older version code (e.g. 200).",
+                        },
+                        "target_version": {
+                            "type": "integer",
+                            "description": "Target/newer version code (e.g. 201).",
+                        },
+                        "metric_type": {
+                            "type": "string",
+                            "enum": ["ANR", "STARTUP", "CRASH"],
+                            "description": "Metric to compare (default: 'ANR').",
+                        },
+                        "package_name": {
+                            "type": "string",
+                            "description": "Android package name. Optional if environment variable is set.",
+                        },
+                        "days": {
+                            "type": "integer",
+                            "description": "Days range to aggregate (default: 7).",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "play_get_raw_error_reports",
+                "description": (
+                    "[Deep-dive Drilldown] Fetch multi-device environmental samples and full stack traces "
+                    "for a specific error issue ID."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["issue_name"],
+                    "properties": {
+                        "issue_name": {
+                            "type": "string",
+                            "description": "Full issue resource name (e.g., 'apps/.../errorIssues/...').",
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Number of sample reports to retrieve (default: 3).",
+                        },
+                        "credentials_path": {
+                            "type": "string",
+                            "description": "Optional path to GCP credentials JSON.",
+                        },
+                    },
+                },
+            },
+        ]
+
+    # --------------------------------------------------------------------------
+    # Tool Execution Handlers
+    # --------------------------------------------------------------------------
+
+    def handle_check_status(self, args: dict[str, Any]) -> dict[str, Any]:
+        cred_path = args.get("credentials_path") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        pkg_name = args.get("package_name") or os.environ.get("GOOGLE_PLAY_PACKAGE_NAME")
+
+        deps_ok = True
+        try:
+            import google.auth  # noqa: F401
+            import googleapiclient  # noqa: F401
+        except ImportError:
+            deps_ok = False
+
+        key_exists = bool(cred_path and os.path.exists(os.path.expanduser(cred_path)))
+        has_env_json = bool(os.environ.get("GOOGLE_PLAY_CREDENTIALS_JSON"))
+
+        ready = deps_ok and (key_exists or has_env_json)
+
+        return {
+            "status": "ready" if ready else "action_required",
+            "server_version": self.server_version,
+            "dependencies_installed": deps_ok,
+            "credentials_configured": key_exists or has_env_json,
+            "credentials_path": cred_path or "(none specified)",
+            "credentials_json_env_present": has_env_json,
+            "configured_package_name": pkg_name or "(none specified)",
+            "setup_guide": (
+                "To connect to Google Play: 1. In Google Play Console -> Setup -> API access, "
+                "link a Google Cloud Service Account with 'View app quality data' read-only permission. "
+                "2. Download the JSON key and set GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json "
+                "or pass 'credentials_path'."
+            ),
+        }
+
+    def handle_get_top_anr_summary(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
+        limit = args.get("limit", 5)
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        issues = self.client.search_error_issues(
+            package_name=pkg, error_type="ANR", page_size=limit
+        )
+
+        clusters = []
+        for issue in issues:
+            issue_name = issue.get("name", "")
+            title = issue.get("cause") or issue.get("location") or issue_name
+            users = issue.get("distinctUsers", "0")
+            count = issue.get("errorReportCount", "0")
+
+            sample_stack = "No sample available"
+            device_info = {}
+            try:
+                reports = self.client.search_error_reports(issue_name=issue_name, page_size=1)
+                if reports:
+                    cleaned = clean_stack_trace(reports[0])
+                    sample_stack = cleaned["stack_trace"]
+                    device_info = {
+                        "device": cleaned["device"],
+                        "android_api": cleaned["android_api"],
+                        "event_time": cleaned["event_time"],
+                    }
+            except Exception as e:
+                logger.warning("Failed to fetch sample stack for %s: %s", issue_name, e)
+
+            clusters.append(
+                {
+                    "issue_id": issue_name.split("/")[-1] if "/" in issue_name else issue_name,
+                    "issue_resource_name": issue_name,
+                    "title": title,
+                    "impacted_users": users,
+                    "total_occurrences": count,
+                    "device_info": device_info,
+                    "sample_stack_trace": sample_stack,
+                }
+            )
+
+        return {
+            "package_name": self.client.resolve_package_name(pkg),
+            "retrieved_clusters_count": len(clusters),
+            "top_anr_clusters": clusters,
+        }
+
+    def handle_get_metric_trends(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
+        metric_type = args.get("metric_type", "ANR").upper()
+        days = args.get("days", 7)
+        version_code = args.get("version_code")
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        if metric_type == "ANR":
+            raw = self.client.query_anr_rate(package_name=pkg, days=days, version_code=version_code)
+            data = clean_rate_metrics(raw, "anrRate", "userPerceivedAnrRate")
+        elif metric_type == "STARTUP":
+            raw = self.client.query_startup_rate(
+                package_name=pkg, days=days, version_code=version_code
+            )
+            data = clean_rate_metrics(raw, "slowStartRate", "userPerceivedSlowStartRate")
+        elif metric_type == "CRASH":
+            raw = self.client.query_crash_rate(
+                package_name=pkg, days=days, version_code=version_code
+            )
+            data = clean_rate_metrics(raw, "crashRate", "userPerceivedCrashRate")
+        else:
+            raise ValueError(
+                f"Unsupported metric_type: '{metric_type}'. Expected ANR, STARTUP, or CRASH."
+            )
+
+        return {
+            "metric_type": metric_type,
+            "package_name": self.client.resolve_package_name(pkg),
+            "version_filter": version_code or "ALL_VERSIONS",
+            "summary": data,
+        }
+
+    def handle_compare_versions(self, args: dict[str, Any]) -> dict[str, Any]:
+        pkg = args.get("package_name")
+        ver_a = args.get("baseline_version")
+        ver_b = args.get("target_version")
+        metric_type = args.get("metric_type", "ANR").upper()
+        days = args.get("days", 7)
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        if ver_a is None or ver_b is None:
+            raise ValueError("Both baseline_version and target_version are required.")
+
+        res_a = self.handle_get_metric_trends(
+            {
+                "package_name": pkg,
+                "metric_type": metric_type,
+                "days": days,
+                "version_code": ver_a,
+            }
+        )
+        res_b = self.handle_get_metric_trends(
+            {
+                "package_name": pkg,
+                "metric_type": metric_type,
+                "days": days,
+                "version_code": ver_b,
+            }
+        )
+
+        summary_a = res_a.get("summary", {})
+        summary_b = res_b.get("summary", {})
+
+        def parse_pct(val_str: str) -> float:
+            try:
+                return float(str(val_str).replace("%", "").strip())
+            except (ValueError, TypeError):
+                return 0.0
+
+        rate_a = parse_pct(summary_a.get("avg_user_perceived_rate", "0"))
+        rate_b = parse_pct(summary_b.get("avg_user_perceived_rate", "0"))
+
+        delta = rate_b - rate_a
+        pct_improvement = ((rate_a - rate_b) / rate_a * 100) if rate_a > 0 else 0.0
+
+        return {
+            "package_name": self.client.resolve_package_name(pkg),
+            "metric_compared": metric_type,
+            "baseline_version": {
+                "version": ver_a,
+                "user_perceived_rate": f"{rate_a:.2f}%",
+            },
+            "target_version": {
+                "version": ver_b,
+                "user_perceived_rate": f"{rate_b:.2f}%",
+            },
+            "delta": f"{delta:+.2f}%",
+            "relative_improvement": (
+                f"{pct_improvement:.1f}% ({'IMPROVEMENT' if pct_improvement > 0 else 'REGRESSION/NEUTRAL'})"
+            ),
+            "verdict": (
+                f"Target version {ver_b} improved {metric_type} by {pct_improvement:.1f}% compared to {ver_a}."
+                if pct_improvement > 0
+                else f"Target version {ver_b} has {abs(pct_improvement):.1f}% neutral or increased {metric_type} rate."
+            ),
+        }
+
+    def handle_get_raw_error_reports(self, args: dict[str, Any]) -> dict[str, Any]:
+        issue_name = args.get("issue_name")
+        if not issue_name:
+            raise ValueError("Parameter 'issue_name' is required.")
+        page_size = args.get("page_size", 3)
+        cred_path = args.get("credentials_path")
+        if cred_path:
+            self.client.credentials_path = cred_path
+
+        reports = self.client.search_error_reports(issue_name=issue_name, page_size=page_size)
+        cleaned_list = [clean_stack_trace(r) for r in reports]
+
+        return {
+            "issue_name": issue_name,
+            "reports_count": len(cleaned_list),
+            "sample_reports": cleaned_list,
+        }
+
+    # --------------------------------------------------------------------------
+    # Dispatcher
+    # --------------------------------------------------------------------------
+
+    def dispatch_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Execute a tool and return JSON-serializable dictionary."""
+        if name == "play_check_status":
+            return self.handle_check_status(arguments)
+        elif name == "play_get_top_anr_summary":
+            return self.handle_get_top_anr_summary(arguments)
+        elif name == "play_get_metric_trends":
+            return self.handle_get_metric_trends(arguments)
+        elif name == "play_compare_versions":
+            return self.handle_compare_versions(arguments)
+        elif name == "play_get_raw_error_reports":
+            return self.handle_get_raw_error_reports(arguments)
+        else:
+            raise ValueError(f"Unknown tool: '{name}'")
+
+    # --------------------------------------------------------------------------
+    # Standard MCP JSON-RPC 2.0 stdio Loop
+    # --------------------------------------------------------------------------
+
+    def run_stdio(self) -> None:
+        """Run the MCP server listening on stdin and responding on stdout."""
+        logger.info(
+            "Starting %s v%s (Model Context Protocol stdio transport)...",
+            self.server_name,
+            self.server_version,
+        )
+
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                request = json.loads(line)
+            except json.JSONDecodeError as e:
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": f"Parse error: {str(e)}"},
+                }
+                sys.stdout.write(json.dumps(error_response) + "\n")
+                sys.stdout.flush()
+                continue
+
+            req_id = request.get("id")
+            method = request.get("method")
+            params = request.get("params", {})
+
+            # 1. Initialize
+            if method == "initialize":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {"listChanged": False},
+                        },
+                        "serverInfo": {
+                            "name": self.server_name,
+                            "version": self.server_version,
+                        },
+                    },
+                }
+            # 2. Initialized Notification
+            elif method == "notifications/initialized":
+                continue
+            # 3. Ping
+            elif method == "ping":
+                response = {"jsonrpc": "2.0", "id": req_id, "result": {}}
+            # 4. List Tools
+            elif method == "tools/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "tools": self.get_tool_definitions(),
+                    },
+                }
+            # 5. Call Tool
+            elif method == "tools/call":
+                tool_name = params.get("name", "")
+                tool_args = params.get("arguments", {})
+                try:
+                    tool_output = self.dispatch_tool(tool_name, tool_args)
+                    formatted_text = json.dumps(tool_output, indent=2, ensure_ascii=False)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": formatted_text,
+                                }
+                            ]
+                        },
+                    }
+                except Exception as e:
+                    logger.exception("Error executing tool %s", tool_name)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps({"error": str(e)}, ensure_ascii=False),
+                                }
+                            ],
+                            "isError": True,
+                        },
+                    }
+            else:
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Method '{method}' not found",
+                    },
+                }
+
+            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+
+
+def main() -> None:
+    server = GooglePlayVitalsMCPServer()
+    server.run_stdio()
+
+
+if __name__ == "__main__":
+    main()

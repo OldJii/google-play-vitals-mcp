@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "google-play-vitals-mcp"
+version = "1.0.0"
+description = "Token-efficient MCP Server for Google Play Developer Reporting API (Android Vitals) - enables AI assistants to diagnose ANRs, crashes, and startup performance."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Google Play Vitals MCP Contributors" }
+]
+maintainers = [
+    { name = "Google Play Vitals MCP Contributors" }
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "google-play",
+    "android-vitals",
+    "anr",
+    "crashlytics",
+    "baseline-profile",
+    "cursor",
+    "claude",
+    "windsurf",
+    "codex",
+    "ai"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: System :: Monitoring"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "google-api-python-client>=2.100.0",
+    "google-auth>=2.20.0",
+    "google-auth-oauthlib>=1.0.0",
+    "google-auth-httplib2>=0.2.0",
+    "pydantic>=2.0.0",
+    "click>=8.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/google-play-vitals-mcp"
+Documentation = "https://github.com/your-username/google-play-vitals-mcp#readme"
+Repository = "https://github.com/your-username/google-play-vitals-mcp.git"
+Issues = "https://github.com/your-username/google-play-vitals-mcp/issues"
+Changelog = "https://github.com/your-username/google-play-vitals-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+google-play-vitals-mcp = "google_play_vitals_mcp.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/google_play_vitals_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/README_CN.md",
+    "/LICENSE",
+    "/CHANGELOG.md"
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+python_files = ["test_*.py"]
