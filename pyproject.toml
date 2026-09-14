@@ -9,10 +9,10 @@ description = "Token-efficient MCP Server for Google Play Developer Reporting AP
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "Google Play Vitals MCP Contributors" }
+    { name = "Oldjii", email = "mail@folay.top" }
 ]
 maintainers = [
-    { name = "Google Play Vitals MCP Contributors" }
+    { name = "Oldjii", email = "mail@folay.top" }
 ]
 keywords = [
     "mcp",
