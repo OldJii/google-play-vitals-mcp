@@ -54,9 +54,10 @@ def test_search_error_issues_filter_composition():
 
     client = GooglePlayVitalsClient(default_package_name="com.example.app")
     mock_service = MagicMock()
-    mock_issues = MagicMock()
     mock_search = MagicMock()
-    mock_execute = MagicMock(return_value={"errorIssues": [{"name": "apps/com.example.app/errorIssues/test1"}]})
+    mock_execute = MagicMock(
+        return_value={"errorIssues": [{"name": "apps/com.example.app/errorIssues/test1"}]}
+    )
 
     mock_service.vitals().errors().issues().search = mock_search
     mock_search.return_value.execute = mock_execute
@@ -83,4 +84,3 @@ def test_search_error_issues_filter_composition():
     assert "isUserPerceived" in filter_arg
     assert "appProcessState = FOREGROUND" in filter_arg
     assert '(deviceModel = "google/pixel")' in filter_arg
-

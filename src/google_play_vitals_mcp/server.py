@@ -771,7 +771,9 @@ class GooglePlayVitalsMCPServer:
             "version_filter": version_code if version_code is not None else "ALL_VERSIONS",
             "retrieved_issues_count": len(cleaned_issues),
             "error_issues": cleaned_issues,
-            "next_page_token": raw_resp.get("nextPageToken") if isinstance(raw_resp, dict) else None,
+            "next_page_token": raw_resp.get("nextPageToken")
+            if isinstance(raw_resp, dict)
+            else None,
         }
 
     def handle_get_error_reports(self, args: dict[str, Any]) -> dict[str, Any]:
@@ -801,7 +803,9 @@ class GooglePlayVitalsMCPServer:
             "issue_resource_name": issue_id,
             "reports_count": len(cleaned_list),
             "sample_reports": cleaned_list,
-            "next_page_token": raw_resp.get("nextPageToken") if isinstance(raw_resp, dict) else None,
+            "next_page_token": raw_resp.get("nextPageToken")
+            if isinstance(raw_resp, dict)
+            else None,
         }
 
     def handle_list_anomalies(self, args: dict[str, Any]) -> dict[str, Any]:

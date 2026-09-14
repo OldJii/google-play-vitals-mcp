@@ -148,4 +148,3 @@ def test_clean_error_issue():
     assert cleaned["title"] == "NullPointerException: Attempt to invoke virtual method"
     assert cleaned["error_report_count"] == 1250
     assert cleaned["distinct_users"] == 890
-

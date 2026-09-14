@@ -190,7 +190,6 @@ def clean_anomalies(raw_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-
 def clean_stack_trace(raw_report: dict[str, Any], max_frames: int = 30) -> dict[str, Any]:
     """
     Extract and reassemble raw error report into standard, readable Java stack trace.

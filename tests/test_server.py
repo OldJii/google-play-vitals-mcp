@@ -52,7 +52,9 @@ def test_dispatch_atomic_tools():
             }
         ]
     }
-    tracks_res = server.dispatch_tool("play_get_release_tracks", {"package_name": "com.example.app"})
+    tracks_res = server.dispatch_tool(
+        "play_get_release_tracks", {"package_name": "com.example.app"}
+    )
     assert tracks_res["package_name"] == "com.example.app"
     assert tracks_res["tracks"][0]["track_type"] == "PRODUCTION"
 
@@ -105,7 +107,6 @@ def test_dispatch_atomic_tools():
     assert reports_res["issue_id"] == "crash_1"
     assert reports_res["reports_count"] == 1
     assert reports_res["sample_reports"][0]["device"] == "Pixel 8"
-
 
 
 def test_handle_check_status():

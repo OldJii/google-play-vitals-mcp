@@ -416,4 +416,3 @@ class GooglePlayVitalsClient:
         resp = service.apps().search(**kwargs).execute()
         self.cache.set(cache_key, resp)
         return resp
-
