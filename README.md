@@ -1,12 +1,10 @@
 # Google Play Vitals MCP Server
 
-[![PyPI version](https://img.shields.io/pypi/v/google-play-vitals-mcp.svg)](https://pypi.org/project/google-play-vitals-mcp/)
+[![PyPI version](https://badge.fury.io/py/google-play-vitals-mcp.svg)](https://pypi.org/project/google-play-vitals-mcp/)
 [![Python Version](https://img.shields.io/pypi/pyversions/google-play-vitals-mcp.svg)](https://pypi.org/project/google-play-vitals-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Protocol](https://img.shields.io/badge/MCP-2024--11--05-blue.svg)](https://modelcontextprotocol.io/)
 [![CI](https://github.com/OldJii/google-play-vitals-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/OldJii/google-play-vitals-mcp/actions/workflows/ci.yml)
-
-> English | [简体中文](README_CN.md)
 
 **Google Play Vitals MCP** is a high-performance, token-efficient [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the **Google Play Developer Reporting API (Android Vitals)**.
 
