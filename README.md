@@ -35,18 +35,36 @@ Designed specifically for AI coding assistants and autonomous agents (**Cursor**
 | **`play_compare_versions`** | Analytics | Compares metrics between two app versions (e.g. baseline `100` vs target `101`) and computes net percentage improvement. |
 | **`play_get_raw_error_reports`** | Deep Drilldown | Retrieves detailed device environment metadata (OS version, device model, timestamp) and long stack traces for an issue. |
 
+### 📝 MCP Prompts & Resources
+
+| Capability | Name / URI | Purpose |
+| :--- | :--- | :--- |
+| **Prompt** | `analyze-anr-incident` | Interactive prompt guiding AI to perform root-cause triage and generate architectural fixes. |
+| **Prompt** | `verify-baseline-profile` | Automated audit prompt comparing release versions to quantify cold-start acceleration and ANR reductions. |
+| **Prompt** | `vitals-weekly-report` | Executive prompt generating a weekly Android stability markdown dashboard. |
+| **Resource** | `vitals://status` | Read-only JSON resource reporting connection health, credentials presence, and active configuration. |
+
 ---
 
 ## 🚀 Quick Start
 
 ### 1. Installation
 
-Install via `pip` or `uv`:
-
+**Option A: Install via pip or uv**
 ```bash
 pip install google-play-vitals-mcp
 # or
 uv pip install google-play-vitals-mcp
+```
+
+**Option B: One-click Install via Smithery (Cursor / Windsurf / Claude)**
+```bash
+npx -y @smithery/cli install google-play-vitals-mcp --client cursor
+```
+
+**Option C: Docker Container**
+```bash
+docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
 ### 2. Google Cloud & Play Console Setup

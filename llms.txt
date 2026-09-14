@@ -1,0 +1,29 @@
+# google-play-vitals-mcp
+
+> Token-efficient Model Context Protocol (MCP) server for Google Play Android Vitals.
+
+## Core Purpose
+Enables AI assistants (Cursor, Claude Desktop, Claude Code, Windsurf, Codex) to monitor and diagnose Android production quality metrics (ANR, Crash, Cold Startup / Baseline Profile) via the official Google Play Developer Reporting API.
+
+## Architecture
+- `src/google_play_vitals_mcp/server.py`: Standard JSON-RPC 2.0 stdio server supporting Tools, Prompts, and Resources.
+- `src/google_play_vitals_mcp/client.py`: API client with Google ADC, Service Account files, and in-memory TTL caching.
+- `src/google_play_vitals_mcp/cleaner.py`: Token compression engine stripping 80%+ Protobuf metadata and formatting single-line Java stack traces.
+- `src/google_play_vitals_mcp/cli.py`: Click CLI providing `run` and `check` commands.
+
+## Available MCP Capabilities
+
+### Tools
+- `play_check_status`: Diagnose credentials and environment.
+- `play_get_top_anr_summary`: One-shot diagnosis returning top ANRs with sample call stacks.
+- `play_get_metric_trends`: Daily time-series metrics for ANR, CRASH, or STARTUP.
+- `play_compare_versions`: Two-version comparative analysis calculating net improvement.
+- `play_get_raw_error_reports`: Device-level drilldown reports.
+
+### Prompts
+- `analyze-anr-incident`: Interactive prompt for root cause analysis and remediation proposal.
+- `verify-baseline-profile`: Automated audit verifying release startup acceleration.
+- `vitals-weekly-report`: Weekly dashboard summary generator.
+
+### Resources
+- `vitals://status`: Real-time system and connection status JSON.

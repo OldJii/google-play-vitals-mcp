@@ -35,18 +35,36 @@
 | **`play_compare_versions`** | 对比决策 | 传入两个版本号，自动横评计算指标升降百分比，直接输出优化或恶化结论。 |
 | **`play_get_raw_error_reports`** | 样本下钻 | 查询特定 Issue 下多台设备的现场硬件参数与长堆栈详情。 |
 
+### 📝 MCP Prompts 预设提示词与 Resources 资源
+
+| 能力类型 | 名称 / URI | 核心功能 |
+| :--- | :--- | :--- |
+| **Prompt** | `analyze-anr-incident` | 专家级排查指令，引导 AI 进行 Top ANR 根因分类并给出代码治理方案。 |
+| **Prompt** | `verify-baseline-profile` | 自动化发版验收指令，对比双版本指标，量化冷启动加速与 ANR 降幅。 |
+| **Prompt** | `vitals-weekly-report` | 自动调取过去 7 天数据并生成格式化的稳定性周报 Markdown 仪表盘。 |
+| **Resource** | `vitals://status` | 只读 JSON 资源，实时查看连接健康度、凭证状态及当前激活的配置。 |
+
 ---
 
 ## 🚀 快速上手
 
-### 1. 安装
+### 1. 安装方式
 
-通过 `pip` 或 `uv` 一键安装：
-
+**方式 A: pip 或 uv 安装**
 ```bash
 pip install google-play-vitals-mcp
 # 或
 uv pip install google-play-vitals-mcp
+```
+
+**方式 B: 通过 Smithery 一键配置（Cursor / Windsurf / Claude）**
+```bash
+npx -y @smithery/cli install google-play-vitals-mcp --client cursor
+```
+
+**方式 C: Docker 容器启动**
+```bash
+docker run -i --rm -v ~/.config/gcp:/gcp -e GOOGLE_APPLICATION_CREDENTIALS=/gcp/key.json google-play-vitals-mcp
 ```
 
 ### 2. Google Cloud 与 Play Console 准备

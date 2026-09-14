@@ -2,6 +2,7 @@
 Google Play Vitals MCP Server Implementation
 High-performance, LLM-optimized Model Context Protocol server.
 Compatible with Cursor, Claude Desktop, Claude Code, Codex, Windsurf, and any MCP client.
+Supports Tools, Prompts, and Resources per latest MCP specifications.
 """
 
 import json
@@ -23,7 +24,7 @@ logger.setLevel(logging.INFO)
 
 
 class GooglePlayVitalsMCPServer:
-    """Universal MCP Server providing Google Play Android Vitals tools."""
+    """Universal MCP Server providing Google Play Android Vitals tools, prompts, and resources."""
 
     def __init__(
         self,
@@ -36,6 +37,10 @@ class GooglePlayVitalsMCPServer:
         )
         self.server_name = "google-play-vitals-mcp"
         self.server_version = __version__
+
+    # ==========================================================================
+    # 1. MCP Tools Schema & Definitions
+    # ==========================================================================
 
     def get_tool_definitions(self) -> list[dict[str, Any]]:
         """Return MCP tool schemas adhering to Model Context Protocol specification."""
@@ -189,9 +194,170 @@ class GooglePlayVitalsMCPServer:
             },
         ]
 
-    # --------------------------------------------------------------------------
-    # Tool Execution Handlers
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    # 2. MCP Prompts Schema & Definitions
+    # ==========================================================================
+
+    def get_prompt_definitions(self) -> list[dict[str, Any]]:
+        """Return MCP prompt templates for AI workflow orchestration."""
+        return [
+            {
+                "name": "analyze-anr-incident",
+                "description": (
+                    "Interactive diagnostic prompt to analyze top production ANR clusters, "
+                    "interpret stack traces, and recommend concrete architectural fixes."
+                ),
+                "arguments": [
+                    {
+                        "name": "package_name",
+                        "description": "Android package name to analyze (optional if set in env).",
+                        "required": False,
+                    },
+                    {
+                        "name": "top_n",
+                        "description": "Number of top ANR clusters to inspect (default: 5).",
+                        "required": False,
+                    },
+                ],
+            },
+            {
+                "name": "verify-baseline-profile",
+                "description": (
+                    "Audit release performance comparing baseline vs. target version to verify "
+                    "Baseline Profile cold-startup acceleration and ANR reductions."
+                ),
+                "arguments": [
+                    {
+                        "name": "baseline_version",
+                        "description": "Older release versionCode before optimization.",
+                        "required": True,
+                    },
+                    {
+                        "name": "target_version",
+                        "description": "Newer release versionCode with Baseline Profile enabled.",
+                        "required": True,
+                    },
+                    {
+                        "name": "package_name",
+                        "description": "Android package name (optional if set in env).",
+                        "required": False,
+                    },
+                ],
+            },
+            {
+                "name": "vitals-weekly-report",
+                "description": (
+                    "Generate a comprehensive markdown report summarizing weekly Android Vitals trends "
+                    "(ANR rate, crash rate, slow cold start rate)."
+                ),
+                "arguments": [
+                    {
+                        "name": "package_name",
+                        "description": "Android package name (optional if set in env).",
+                        "required": False,
+                    },
+                    {
+                        "name": "days",
+                        "description": "Days to analyze (default: 7).",
+                        "required": False,
+                    },
+                ],
+            },
+        ]
+
+    def dispatch_prompt(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Generate structured prompt messages based on prompt template."""
+        pkg = (
+            arguments.get("package_name") or self.client.default_package_name or "YOUR_PACKAGE_NAME"
+        )
+        if name == "analyze-anr-incident":
+            top_n = arguments.get("top_n", 5)
+            instruction = (
+                f"Please conduct an in-depth ANR triage for package '{pkg}':\n"
+                f"1. Use `play_get_top_anr_summary` with limit={top_n} to pull the highest impact ANR clusters and sample stack traces.\n"
+                f"2. Categorize the root cause for each issue (e.g., Disk I/O, Lock Contention, Main-thread Crypto, Heavy Initialization).\n"
+                f"3. Provide actionable code remediation proposals (e.g., Async pre-warming, Background Dispatch, Lazy Loading).\n"
+                f"4. Format the final output into a clear, professional technical summary table."
+            )
+            return {
+                "description": f"ANR Incident Analysis for {pkg}",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {"type": "text", "text": instruction},
+                    }
+                ],
+            }
+        elif name == "verify-baseline-profile":
+            v_base = arguments.get("baseline_version")
+            v_target = arguments.get("target_version")
+            instruction = (
+                f"Please verify Baseline Profile release performance for package '{pkg}':\n"
+                f"1. Call `play_compare_versions` with metric_type='STARTUP', baseline_version={v_base}, target_version={v_target}.\n"
+                f"2. Call `play_compare_versions` with metric_type='ANR', baseline_version={v_base}, target_version={v_target}.\n"
+                f"3. Quantify the relative percentage improvements in slow cold start rates and user-perceived ANRs.\n"
+                f"4. Conclude whether the Baseline Profile rules have successfully accelerated app cold startup in production."
+            )
+            return {
+                "description": f"Baseline Profile Verification ({v_base} vs {v_target})",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {"type": "text", "text": instruction},
+                    }
+                ],
+            }
+        elif name == "vitals-weekly-report":
+            days = arguments.get("days", 7)
+            instruction = (
+                f"Please generate a comprehensive Android Vitals weekly stability report for package '{pkg}':\n"
+                f"1. Query `play_get_metric_trends` for 'ANR' over the past {days} days.\n"
+                f"2. Query `play_get_metric_trends` for 'CRASH' over the past {days} days.\n"
+                f"3. Query `play_get_metric_trends` for 'STARTUP' over the past {days} days.\n"
+                f"4. Synthesize the findings into an executive markdown dashboard with daily trend analysis and health grades."
+            )
+            return {
+                "description": f"Weekly Stability Report for {pkg}",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {"type": "text", "text": instruction},
+                    }
+                ],
+            }
+        else:
+            raise ValueError(f"Unknown prompt template: '{name}'")
+
+    # ==========================================================================
+    # 3. MCP Resources Schema & Definitions
+    # ==========================================================================
+
+    def get_resource_definitions(self) -> list[dict[str, Any]]:
+        """Return read-only MCP resources providing contextual metadata."""
+        return [
+            {
+                "uri": "vitals://status",
+                "name": "Google Play Vitals System & Environment Status",
+                "description": "Real-time diagnostic overview of dependencies, active package configuration, and GCP credentials.",
+                "mimeType": "application/json",
+            }
+        ]
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        """Read and return contextual resource contents."""
+        if uri == "vitals://status":
+            status_data = self.handle_check_status({})
+            return {
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": json.dumps(status_data, indent=2, ensure_ascii=False),
+            }
+        else:
+            raise ValueError(f"Resource URI not found: '{uri}'")
+
+    # ==========================================================================
+    # 4. Tool Execution Handlers
+    # ==========================================================================
 
     def handle_check_status(self, args: dict[str, Any]) -> dict[str, Any]:
         cred_path = args.get("credentials_path") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
@@ -217,6 +383,7 @@ class GooglePlayVitalsMCPServer:
             "credentials_path": cred_path or "(none specified)",
             "credentials_json_env_present": has_env_json,
             "configured_package_name": pkg_name or "(none specified)",
+            "capabilities_supported": ["tools", "prompts", "resources"],
             "setup_guide": (
                 "To connect to Google Play: 1. In Google Play Console -> Setup -> API access, "
                 "link a Google Cloud Service Account with 'View app quality data' read-only permission. "
@@ -395,9 +562,9 @@ class GooglePlayVitalsMCPServer:
             "sample_reports": cleaned_list,
         }
 
-    # --------------------------------------------------------------------------
-    # Dispatcher
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    # 5. Dispatcher
+    # ==========================================================================
 
     def dispatch_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute a tool and return JSON-serializable dictionary."""
@@ -414,9 +581,9 @@ class GooglePlayVitalsMCPServer:
         else:
             raise ValueError(f"Unknown tool: '{name}'")
 
-    # --------------------------------------------------------------------------
-    # Standard MCP JSON-RPC 2.0 stdio Loop
-    # --------------------------------------------------------------------------
+    # ==========================================================================
+    # 6. Standard MCP JSON-RPC 2.0 stdio Loop
+    # ==========================================================================
 
     def run_stdio(self) -> None:
         """Run the MCP server listening on stdin and responding on stdout."""
@@ -447,7 +614,9 @@ class GooglePlayVitalsMCPServer:
             method = request.get("method")
             params = request.get("params", {})
 
-            # 1. Initialize
+            # ------------------------------------------------------------------
+            # Lifecycle: initialize & notifications
+            # ------------------------------------------------------------------
             if method == "initialize":
                 response = {
                     "jsonrpc": "2.0",
@@ -456,6 +625,8 @@ class GooglePlayVitalsMCPServer:
                         "protocolVersion": "2024-11-05",
                         "capabilities": {
                             "tools": {"listChanged": False},
+                            "prompts": {"listChanged": False},
+                            "resources": {"listChanged": False},
                         },
                         "serverInfo": {
                             "name": self.server_name,
@@ -463,13 +634,14 @@ class GooglePlayVitalsMCPServer:
                         },
                     },
                 }
-            # 2. Initialized Notification
             elif method == "notifications/initialized":
                 continue
-            # 3. Ping
             elif method == "ping":
                 response = {"jsonrpc": "2.0", "id": req_id, "result": {}}
-            # 4. List Tools
+
+            # ------------------------------------------------------------------
+            # Tools API
+            # ------------------------------------------------------------------
             elif method == "tools/list":
                 response = {
                     "jsonrpc": "2.0",
@@ -478,7 +650,6 @@ class GooglePlayVitalsMCPServer:
                         "tools": self.get_tool_definitions(),
                     },
                 }
-            # 5. Call Tool
             elif method == "tools/call":
                 tool_name = params.get("name", "")
                 tool_args = params.get("arguments", {})
@@ -512,6 +683,73 @@ class GooglePlayVitalsMCPServer:
                             "isError": True,
                         },
                     }
+
+            # ------------------------------------------------------------------
+            # Prompts API
+            # ------------------------------------------------------------------
+            elif method == "prompts/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "prompts": self.get_prompt_definitions(),
+                    },
+                }
+            elif method == "prompts/get":
+                prompt_name = params.get("name", "")
+                prompt_args = params.get("arguments", {})
+                try:
+                    prompt_result = self.dispatch_prompt(prompt_name, prompt_args)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": prompt_result,
+                    }
+                except Exception as e:
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "error": {
+                            "code": -32602,
+                            "message": f"Prompt error: {str(e)}",
+                        },
+                    }
+
+            # ------------------------------------------------------------------
+            # Resources API
+            # ------------------------------------------------------------------
+            elif method == "resources/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "resources": self.get_resource_definitions(),
+                    },
+                }
+            elif method == "resources/read":
+                res_uri = params.get("uri", "")
+                try:
+                    res_content = self.read_resource(res_uri)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": {
+                            "contents": [res_content],
+                        },
+                    }
+                except Exception as e:
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "error": {
+                            "code": -32602,
+                            "message": f"Resource error: {str(e)}",
+                        },
+                    }
+
+            # ------------------------------------------------------------------
+            # Fallback for Unknown Methods
+            # ------------------------------------------------------------------
             else:
                 response = {
                     "jsonrpc": "2.0",

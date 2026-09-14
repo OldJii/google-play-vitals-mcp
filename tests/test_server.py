@@ -78,3 +78,47 @@ def test_dispatch_unknown_tool():
     with pytest.raises(ValueError) as exc:
         server.dispatch_tool("unknown_tool", {})
     assert "Unknown tool" in str(exc.value)
+
+
+def test_prompt_definitions_and_dispatch():
+    server = GooglePlayVitalsMCPServer(default_package_name="com.test.app")
+    prompts = server.get_prompt_definitions()
+    prompt_names = [p["name"] for p in prompts]
+
+    assert "analyze-anr-incident" in prompt_names
+    assert "verify-baseline-profile" in prompt_names
+    assert "vitals-weekly-report" in prompt_names
+
+    # Test dispatch analyze-anr-incident
+    res1 = server.dispatch_prompt("analyze-anr-incident", {"package_name": "com.test.app"})
+    assert "com.test.app" in res1["messages"][0]["content"]["text"]
+    assert "play_get_top_anr_summary" in res1["messages"][0]["content"]["text"]
+
+    # Test dispatch verify-baseline-profile
+    res2 = server.dispatch_prompt(
+        "verify-baseline-profile",
+        {"baseline_version": 100, "target_version": 101, "package_name": "com.test.app"},
+    )
+    assert "100" in res2["messages"][0]["content"]["text"]
+    assert "101" in res2["messages"][0]["content"]["text"]
+
+    # Test dispatch unknown prompt
+    with pytest.raises(ValueError) as exc:
+        server.dispatch_prompt("unknown_prompt", {})
+    assert "Unknown prompt template" in str(exc.value)
+
+
+def test_resource_definitions_and_read():
+    server = GooglePlayVitalsMCPServer(default_package_name="com.test.app")
+    resources = server.get_resource_definitions()
+    assert len(resources) >= 1
+    assert resources[0]["uri"] == "vitals://status"
+
+    content = server.read_resource("vitals://status")
+    assert content["uri"] == "vitals://status"
+    assert content["mimeType"] == "application/json"
+    assert "capabilities_supported" in content["text"]
+
+    with pytest.raises(ValueError) as exc:
+        server.read_resource("vitals://unknown")
+    assert "Resource URI not found" in str(exc.value)

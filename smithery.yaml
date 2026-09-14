@@ -1,0 +1,24 @@
+# Smithery MCP Server Configuration
+# https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      googleApplicationCredentials:
+        type: string
+        description: Absolute path to the Google Cloud Service Account JSON key.
+      googlePlayPackageName:
+        type: string
+        description: Default Android package name (e.g. com.example.app).
+  commandFunction:
+    |
+    (config) => ({
+      command: 'google-play-vitals-mcp',
+      args: [],
+      env: {
+        ...(config.googleApplicationCredentials && { GOOGLE_APPLICATION_CREDENTIALS: config.googleApplicationCredentials }),
+        ...(config.googlePlayPackageName && { GOOGLE_PLAY_PACKAGE_NAME: config.googlePlayPackageName })
+      }
+    })
