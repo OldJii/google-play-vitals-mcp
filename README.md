@@ -1,22 +1,23 @@
 # Google Play Vitals MCP Server
 
 [![PyPI version](https://badge.fury.io/py/google-play-vitals-mcp.svg)](https://pypi.org/project/google-play-vitals-mcp/)
-[![Python Version](https://img.shields.io/pypi/pyversions/google-play-vitals-mcp.svg)](https://pypi.org/project/google-play-vitals-mcp/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/google-play-vitals-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Protocol](https://img.shields.io/badge/MCP-2024--11--05-blue.svg)](https://modelcontextprotocol.io/)
 [![CI](https://github.com/OldJii/google-play-vitals-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/OldJii/google-play-vitals-mcp/actions/workflows/ci.yml)
 
 **Google Play Vitals MCP** is a high-performance, token-efficient [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the **Google Play Developer Reporting API (Android Vitals)**.
 
-Designed specifically for AI coding assistants and autonomous agents (**Cursor**, **Claude Desktop**, **Claude Code**, **Codex**, **Windsurf**, and **Cline**), it empowers AI to analyze Android production stability, diagnose ANRs (Application Not Responding), track crash trends, and verify startup optimizations (such as **AndroidX Baseline Profiles**) with minimal context token consumption.
+Designed specifically for AI coding assistants and autonomous agents (**Cursor**, **Claude Desktop**, **Claude Code**, **Codex**, **Windsurf**, and **Cline**), it empowers AI to analyze Android production stability, diagnose ANRs (Application Not Responding), track crash trends, inspect de-obfuscated call stacks, and verify startup optimizations (such as **AndroidX Baseline Profiles**) with minimal context token consumption.
 
 ---
 
 ## 🌟 Key Highlights
 
+- **Full-Spectrum Atomic Architecture**: Complete, orthogonal coverage of Google Play Developer Reporting API endpoints (Viewer scope) — release track discovery, AIP-160 error cluster search, stack drilldown, and anomaly monitoring.
+- **Autonomous Chained Workflows**: Empowers AI agents to autonomously identify the active production release, retrieve top Crash/ANR issues, and drill down into de-obfuscated stack traces in a natural chain without hardcoded assumptions.
 - **Token Economy by Design (Token Saver)**: Upstream Google Developer Reporting APIs return deeply nested, verbose Protobuf responses. Our built-in compression engine strips 80%+ redundant metadata and automatically reassembles raw frame data into clean, single-line standard Java stack traces (`at com.example.Foo.bar(Foo.java:42)`).
-- **One-Shot Comprehensive Diagnosis (`play_get_top_anr_summary`)**: Eliminates the frustration of multi-turn tool roundtrips. A single tool call aggregates Top ANR clusters, affected user counts, occurrence numbers, and their representative de-obfuscated main thread stack traces.
-- **Version Comparative Analysis (`play_compare_versions`)**: Specifically designed for quantifying release optimizations. Compare before-and-after versions (e.g., verifying ANR governance or Baseline Profile cold-start acceleration) with automated delta calculation and percentage improvement reporting.
+- **Version Comparative Analysis (`play_compare_versions`)**: Quantifies release optimizations. Compare before-and-after versions (e.g. verifying ANR governance or Baseline Profile cold-start acceleration) with automated delta calculation and percentage improvement reporting.
 - **Universal & Production Decoupled**: Zero proprietary hardcoding. Supports any Android package, dynamic runtime parameters, environment variables, Service Account JSON files, JSON strings, or Google Application Default Credentials (ADC).
 - **Zero-Latency In-Memory Hot Cache**: Built-in 5-minute LRU cache prevents accidental quota exhaustion during multi-step AI reasoning.
 - **Broad Agent Compatibility**: Works out of the box with Cursor, Claude Desktop, Claude Code, Windsurf, Codex, and standard MCP JSON-RPC 2.0 stdio clients.
@@ -25,25 +26,37 @@ Designed specifically for AI coding assistants and autonomous agents (**Cursor**
 
 ## 🛠️ MCP Tools Overview
 
-### 1. Atomic Core Tools (Recommended for Autonomous Agents)
+### 1. Release & App Discovery
 
 | Tool Name | Type | Description |
 | :--- | :---: | :--- |
-| **`play_get_release_tracks`** | **Release Discovery** | Fetches active release tracks (`PRODUCTION`, `BETA`, `ALPHA`, `INTERNAL`) and serving releases with their release names and `versionCodes`. Essential for discovering latest stable releases. |
-| **`play_search_error_issues`** | **Issue Search** | Searches error clusters (`CRASH`, `ANR`, or `NON_FATAL`) with full AIP-160 filter support (`versionCode`, `isUserPerceived`, `appProcessState`, etc.). Sorted by occurrences and user impact. |
-| **`play_get_error_reports`** | **Deep Drilldown** | Fetches multi-device environmental samples and cleaned, de-obfuscated stack traces for an issue ID or resource name. |
-| **`play_list_anomalies`** | **Anomaly Monitor** | Retrieves sudden metric spikes and regression alerts detected by Google Play algorithms. |
-| **`play_list_accessible_apps`** | **App Discovery** | Lists all Google Play applications accessible by the configured service account. |
+| **`play_get_release_tracks`** | Release Discovery | Fetches active release tracks (`PRODUCTION`, `BETA`, `ALPHA`, `INTERNAL`) and serving releases with their release names and `versionCodes`. Essential for discovering latest stable releases. |
+| **`play_list_accessible_apps`** | App Discovery | Lists all Google Play applications accessible by the configured GCP Service Account. |
 
-### 2. Analytics & Convenience Tools
+### 2. Error Issues & Stack Traces
+
+| Tool Name | Type | Description |
+| :--- | :---: | :--- |
+| **`play_search_error_issues`** | Issue Search | Searches error clusters (`CRASH`, `ANR`, or `NON_FATAL`) with full AIP-160 filter support (`versionCode`, `isUserPerceived`, `appProcessState`, `custom_filter`). Sorted by user impact and occurrences. |
+| **`play_get_error_reports`** | Deep Drilldown | Fetches multi-device environmental samples and cleaned, de-obfuscated stack traces for an issue ID or resource name. |
+| **`play_get_top_anr_summary`** | Quick Triage | One-shot aggregator for top ANR clusters and sample main-thread stack traces. |
+| **`play_get_raw_error_reports`** | Raw Reports | Retrieves raw error reports and multi-device environment samples for an issue. |
+
+### 3. Vitals Metrics & Analytics
 
 | Tool Name | Type | Description |
 | :--- | :---: | :--- |
 | **`play_get_metric_trends`** | Metrics | Queries historical daily trends and overall averages for **`ANR`**, **`STARTUP`** (slow cold starts), or **`CRASH`** with optional version code filters. |
 | **`play_compare_versions`** | Analytics | Compares metrics between two app versions (e.g. baseline `100` vs target `101`) and computes net percentage improvement. |
-| **`play_get_top_anr_summary`** | Quick Triage | One-shot aggregator for top ANR clusters and sample main-thread stack traces. |
+
+### 4. Monitoring & Diagnostics
+
+| Tool Name | Type | Description |
+| :--- | :---: | :--- |
+| **`play_list_anomalies`** | Anomaly Monitor | Retrieves sudden metric spikes and regression alerts detected by Google Play algorithms. |
 | **`play_check_status`** | Diagnostics | Self-tests Python dependencies, GCP Service Account key presence, and environment readiness. |
-| **`play_get_raw_error_reports`** | Legacy Alias | Backward-compatible alias for `play_get_error_reports`. |
+
+---
 
 ### 📝 MCP Prompts & Resources
 
