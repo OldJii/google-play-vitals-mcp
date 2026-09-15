@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-09-15
+
+### Security
+- **Credential Path Redaction**: Diagnostic tool and resource responses no longer expose the local Service Account file path.
+- **Trusted Publishing Only**: Removed the legacy token-based fallback from the release workflow; publishing now uses OIDC exclusively.
+
+### Fixed
+- **Prompt Configuration Validation**: Missing package configuration now produces a clear error instead of emitting a synthetic package name.
+- **Source Distribution Manifest**: Removed the stale `README_CN.md` include entry.
+
 ## [1.3.2] - 2026-09-15
 
 ### Fixed

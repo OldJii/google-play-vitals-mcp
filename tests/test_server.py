@@ -111,12 +111,19 @@ def test_dispatch_atomic_tools():
 
 def test_handle_check_status():
     server = GooglePlayVitalsMCPServer()
-    status = server.handle_check_status({"package_name": "com.test.app"})
+    status = server.handle_check_status(
+        {
+            "package_name": "com.test.app",
+            "credentials_path": "/private/example/service-account.json",
+        }
+    )
 
     assert "server_version" in status
     assert "dependencies_installed" in status
     assert "status" in status
     assert status["configured_package_name"] == "com.test.app"
+    assert "credentials_path" not in status
+    assert "/private/example" not in str(status)
 
 
 def test_compare_versions_logic():
@@ -180,6 +187,11 @@ def test_prompt_definitions_and_dispatch():
     )
     assert "100" in res2["messages"][0]["content"]["text"]
     assert "101" in res2["messages"][0]["content"]["text"]
+
+    # Missing package configuration must fail instead of emitting a placeholder.
+    with pytest.raises(ValueError) as exc:
+        GooglePlayVitalsMCPServer().dispatch_prompt("analyze-anr-incident", {})
+    assert "Package name is required" in str(exc.value)
 
     # Test dispatch unknown prompt
     with pytest.raises(ValueError) as exc:

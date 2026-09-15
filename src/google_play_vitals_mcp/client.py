@@ -100,16 +100,14 @@ class GooglePlayVitalsClient:
                 expanded_path = os.path.expanduser(file_path)
                 if not os.path.exists(expanded_path):
                     raise FileNotFoundError(
-                        f"GCP Service Account credential file not found at: {expanded_path}"
+                        "Configured GCP Service Account credential file not found."
                     )
                 try:
                     creds = service_account.Credentials.from_service_account_file(
                         expanded_path, scopes=SCOPES
                     )
                 except Exception as e:
-                    raise ValueError(
-                        f"Failed to load credentials from file {expanded_path}: {e}"
-                    ) from e
+                    raise ValueError(f"Failed to load configured credentials: {e}") from e
 
         # Priority 3: Google Application Default Credentials (ADC)
         if creds is None:

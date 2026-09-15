@@ -51,7 +51,3 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          # Supports OIDC Trusted Publishing automatically.
-          # If not configured with OIDC, fallback to repository secret PYPI_API_TOKEN if set.
-          password: ${{ secrets.PYPI_API_TOKEN }}

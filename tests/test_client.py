@@ -40,6 +40,17 @@ def test_resolve_package_name():
     assert "Package name is required" in str(exc_info.value)
 
 
+def test_missing_credentials_path_is_redacted(monkeypatch):
+    monkeypatch.delenv("GOOGLE_PLAY_CREDENTIALS_JSON", raising=False)
+    private_path = "/private/example/service-account.json"
+    client = GooglePlayVitalsClient(credentials_path=private_path)
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        client.get_service()
+
+    assert private_path not in str(exc_info.value)
+
+
 def test_build_timeline_spec():
     client = GooglePlayVitalsClient()
     spec = client.build_timeline_spec(days=7)

@@ -431,9 +431,7 @@ class GooglePlayVitalsMCPServer:
 
     def dispatch_prompt(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Generate structured prompt messages based on prompt template."""
-        pkg = (
-            arguments.get("package_name") or self.client.default_package_name or "YOUR_PACKAGE_NAME"
-        )
+        pkg = self.client.resolve_package_name(arguments.get("package_name"))
         if name == "analyze-anr-incident":
             top_n = arguments.get("top_n", 5)
             instruction = (
@@ -557,7 +555,6 @@ class GooglePlayVitalsMCPServer:
             "dependencies_installed": deps_ok,
             "credentials_configured": creds_ok,
             "auth_type": auth_type,
-            "credentials_path": cred_path or "(none specified)",
             "credentials_json_env_present": has_env_json,
             "configured_package_name": pkg_name or "(none specified)",
             "capabilities_supported": ["tools", "prompts", "resources"],
